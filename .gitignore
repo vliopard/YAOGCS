@@ -1,0 +1,7 @@
+/resources/credentials/credentials.json
+/resources/credentials/token.json
+/resources/credentials/secrets.txt
+/resources/samples/
+/launch_errors.log
+*__pycache__/
+.idea/
