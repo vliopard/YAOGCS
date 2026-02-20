@@ -1,6 +1,7 @@
 /resources/credentials/credentials.json
 /resources/credentials/token.json
 /resources/credentials/secrets.txt
+/resources/database/event_map.json
 /resources/samples/
 /launch_errors.log
 *__pycache__/

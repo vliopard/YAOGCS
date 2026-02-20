@@ -1,6 +1,8 @@
 import ctypes
 import logging
 import queue
+import ssl
+import socket
 import threading
 import time
 from datetime import datetime
@@ -175,14 +177,39 @@ def _observer_bridge(tray_q):
             if nls >= system_observer.time_out():
                 current_time = datetime.now().strftime('%Y.%m.%d %p %I:%M:%S')
                 print_display(f'[{current_time}] Syncing Outlook to Google...')
-                try:
-                    connection_ms_outlook = MicrosoftOutlookConnector()
-                    connection_g_calendar = GoogleCalendarConnector()
-                    sync_outlook_to_google(connection_ms_outlook,
-                                           connection_g_calendar)
+                _SYNC_MAX_RETRIES = 3
+                _SYNC_BASE_DELAY = 10.0
+                _TRANSIENT = (
+                    ssl.SSLError,
+                    ssl.SSLEOFError,
+                    ConnectionResetError,
+                    ConnectionAbortedError,
+                    socket.timeout,
+                    TimeoutError,
+                    OSError,
+                )
+                sync_succeeded = False
+                sync_delay = _SYNC_BASE_DELAY
+                for sync_attempt in range(1, _SYNC_MAX_RETRIES + 1):
+                    try:
+                        connection_ms_outlook = MicrosoftOutlookConnector()
+                        connection_g_calendar = GoogleCalendarConnector()
+                        sync_outlook_to_google(connection_ms_outlook,
+                                               connection_g_calendar)
+                        sync_succeeded = True
+                        break
+                    except _TRANSIENT as net_error:
+                        if sync_attempt < _SYNC_MAX_RETRIES:
+                            print_display(f'{line_number()} [{current_time}] Transient network error (attempt {sync_attempt}/{_SYNC_MAX_RETRIES}): {net_error}, retrying in {sync_delay:.0f}s...')
+                            sleep(sync_delay)
+                            sync_delay *= 2
+                        else:
+                            print_display(f'{line_number()} [{current_time}] Sync failed after {_SYNC_MAX_RETRIES} attempts: {net_error}')
+                    except Exception as sync_error:
+                        print_display(f'{line_number()} [{current_time}] ERROR during sync: {sync_error}')
+                        break
+                if sync_succeeded:
                     last_sync = now
-                except Exception as sync_error:
-                    print_display(f'{line_number()} [{current_time}] ERROR during sync: {sync_error}')
 
             print_display(f'[{antes}] NEXT Syncing Outlook to Google...')
     except KeyboardInterrupt:

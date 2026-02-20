@@ -65,7 +65,6 @@ def copy_g_calendar_recurrent_event_to_ms_outlook(local_g_calendar_connection,
                 calendar_event = CalendarEvent()
                 calendar_event.import_g_calendar(g_calendar_event_data)
                 ms_outlook_exported_event = calendar_event.export_ms_outlook()
-                print_display(f'{line_number()} INSERTING MASTER OCCURRENCE: [{ms_outlook_exported_event}]')
                 ms_outlook_inserted_appointment = local_ms_outlook_connection.ms_outlook_insert(ms_outlook_exported_event)
                 if ms_outlook_inserted_appointment:
                     ms_outlook_entry_id = ms_outlook_inserted_appointment.EntryID
@@ -83,7 +82,7 @@ def copy_g_calendar_recurrent_event_to_ms_outlook(local_g_calendar_connection,
                                                                         ms_outlook_instances):
                         gci = g_calendar_instance['id'][-10:]
                         moi = ms_outlook_instance['EntryID'][-10:]
-                        print_display(f'{line_number()} ADDING RECURRENCE INSTANCE: [{ms_outlook_master_id}] GCal[{gci}] <-> Outlook[{moi}]')
+                        print_display(f'{line_number()} ADDING RECURRENCE INSTANCE: [{ms_outlook_master_id[-10:]}] GCal[{gci}] <-> Outlook[{moi}]')
                         ms_outlook_start = str(ms_outlook_instance['StartUTC']).replace(':',
                                                                                         '').replace(' ',
                                                                                                     '').replace('+',
@@ -119,7 +118,6 @@ def copy_ms_outlook_recurrent_event_to_g_calendar(local_ms_outlook_connection,
                 calendar_event = CalendarEvent()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
                 g_calendar_exported_event = calendar_event.export_g_calendar()
-                print_display(f'{line_number()} INSERTING MASTER OCCURRENCE: [{g_calendar_exported_event}]')
                 g_calendar_inserted_appointment = local_g_calendar_connection.g_calendar_insert(g_calendar_exported_event)
                 if g_calendar_inserted_appointment:
                     g_calendar_master_id = g_calendar_inserted_appointment.get('id')
@@ -137,7 +135,7 @@ def copy_ms_outlook_recurrent_event_to_g_calendar(local_ms_outlook_connection,
                                                                                        'start.dateTime')):
                         eid = ms_outlook_instance['EntryID'][-10:]
                         gci = g_calendar_instance['id'][-10:]
-                        print_display(f'{line_number()} ADDING RECURRENCE INSTANCE: [{ms_outlook_current_id}] Outlook[{eid}] <-> GCal[{gci}]')
+                        print_display(f'{line_number()} ADDING RECURRENCE INSTANCE: [{ms_outlook_current_id[-10:]}] Outlook[{eid}] <-> GCal[{gci}]')
                         ms_outlook_start = str(ms_outlook_instance['StartUTC']).replace(':',
                                                                                         '').replace(' ',
                                                                                                     '').replace('+',

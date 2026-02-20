@@ -88,6 +88,13 @@ def time_now():
                                               'Z')
 
 
+def time_max():
+    utc_time_now = datetime.now(timezone.utc)
+    utc_time_end = utc_time_now + timedelta(days=180)
+    return utc_time_end.isoformat().replace('+00:00',
+                                            'Z')
+
+
 def _add_months(date_time,
                 date_months):
     date_month = date_time.month - 1 + date_months

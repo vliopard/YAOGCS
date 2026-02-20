@@ -1,4 +1,8 @@
 import os
+import ssl
+import socket
+import time
+from functools import wraps
 from pathlib import Path
 
 from google.auth.exceptions import RefreshError
@@ -9,9 +13,48 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from utils.handling_time import time_now
+from utils.handling_time import time_max
 from utils.utils import line_number
 from utils.utils import object_serializer
 from utils.utils import print_display
+
+_RETRYABLE_EXCEPTIONS = (
+    ssl.SSLError,
+    ssl.SSLEOFError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+    socket.timeout,
+    TimeoutError,
+    OSError,
+)
+_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 4
+_RETRY_BASE_DELAY = 2.0
+
+
+def _google_api_retry(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        delay = _RETRY_BASE_DELAY
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                return func(*args, **kwargs)
+            except HttpError as http_error:
+                if http_error.status_code in _RETRY_STATUS_CODES and attempt < _MAX_RETRIES:
+                    print_display(f'{line_number()} Google API HTTP {http_error.status_code} on attempt {attempt}/{_MAX_RETRIES}, retrying in {delay:.0f}s...')
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    raise
+            except _RETRYABLE_EXCEPTIONS as net_error:
+                if attempt < _MAX_RETRIES:
+                    print_display(f'{line_number()} Transient network error on attempt {attempt}/{_MAX_RETRIES}: [{net_error}], retrying in {delay:.0f}s...')
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    print_display(f'{line_number()} All {_MAX_RETRIES} retries exhausted: [{net_error}]')
+                    raise
+    return wrapper
 
 
 class GoogleCalendarHelper:
@@ -53,24 +96,30 @@ class GoogleCalendarHelper:
                      'v3',
                      credentials=g_calendar_credentials)
 
+    @_google_api_retry
     def get_g_calendar_events_list(self):
         return self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
                                                      timeMin=time_now(),
+                                                     timeMax=time_max(),
                                                      maxResults=2500,
                                                      singleEvents=False).execute()
 
+    @_google_api_retry
     def get_g_calendar_events_instances(self,
                                         g_calendar_event_id):
         return self.g_calendar_service.events().instances(calendarId=self.g_calendar_id,
                                                           eventId=g_calendar_event_id,
                                                           timeMin=time_now(),
+                                                          timeMax=time_max(),
                                                           showDeleted=True).execute()
 
+    @_google_api_retry
     def insert_g_calendar_event(self,
                                 event_body):
         return self.g_calendar_service.events().insert(calendarId=self.g_calendar_id,
                                                        body=object_serializer(event_body)).execute()
 
+    @_google_api_retry
     def update_g_calendar_event(self,
                                 google_id,
                                 event_body):
@@ -78,6 +127,7 @@ class GoogleCalendarHelper:
                                                        eventId=google_id,
                                                        body=object_serializer(event_body)).execute()
 
+    @_google_api_retry
     def delete_g_calendar_event(self,
                                 g_calendar_instance):
         try:
@@ -87,6 +137,7 @@ class GoogleCalendarHelper:
             print_display(f'{line_number()} DELETE ERROR: [{http_error}]')
             return 'Failed'
 
+    @_google_api_retry
     def get_g_calendar_event_instance(self,
                                       g_calendar_instance_id):
         return self.g_calendar_service.events().get(calendarId=self.g_calendar_id,
