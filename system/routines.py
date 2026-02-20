@@ -25,7 +25,7 @@ def copy_ms_outlook_single_event_to_g_calendar(local_ms_outlook_connection,
                 calendar_event = CalendarEvent()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
                 g_calendar_exported_event = calendar_event.export_g_calendar()
-                print_display(f'{line_number()} INSERTING EVENT: [{g_calendar_exported_event}]')
+                print_display(f'{line_number()} INSERTING EVENT: [{ms_outlook_current_event[-10:]}]')
                 g_calendar_inserted_appointment = local_g_calendar_connection.g_calendar_insert(g_calendar_exported_event)
                 if g_calendar_inserted_appointment:
                     g_calendar_master_id = g_calendar_inserted_appointment.get('id')
@@ -50,7 +50,7 @@ def copy_g_calendar_single_event_to_ms_outlook(local_g_calendar_connection,
                 calendar_event = CalendarEvent()
                 calendar_event.import_g_calendar(g_calendar_event_item)
                 ms_outlook_exported_event = calendar_event.export_ms_outlook()
-                print_display(f'{line_number()} INSERTING EVENT: [{ms_outlook_exported_event}]')
+                print_display(f'{line_number()} INSERTING EVENT: [{g_calendar_event_id[-10:]}]')
                 ms_outlook_inserted_appointment = local_ms_outlook_connection.ms_outlook_insert(ms_outlook_exported_event)
                 if ms_outlook_inserted_appointment:
                     ms_outlook_event_id = ms_outlook_inserted_appointment.EntryID
