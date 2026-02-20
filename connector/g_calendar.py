@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
@@ -15,12 +16,16 @@ from utils.utils import print_display
 
 class GoogleCalendarHelper:
     def __init__(self):
-        credentials_dir = '../resources/credentials'
+        # credentials_dir = '../resources/credentials'
+        base_dir = Path(__file__).resolve().parent.parent
+        credentials_dir = (base_dir / 'resources' / 'credentials').resolve()
         self.g_calendar_read = 'r'
         self.g_calendar_write = 'w'
         self.g_calendar_id = 'primary'
-        self.g_calendar_token = f'{credentials_dir}/token.json'
-        self.g_calendar_credentials = f'{credentials_dir}/credentials.json'
+        # self.g_calendar_token = f'{credentials_dir}/token.json'
+        # self.g_calendar_credentials = f'{credentials_dir}/credentials.json'
+        self.g_calendar_token = str(credentials_dir / 'token.json')
+        self.g_calendar_credentials = str(credentials_dir / 'credentials.json')
         self.g_calendar_scopes = ['https://www.googleapis.com/auth/calendar']
         self.g_calendar_service = self.get_google_service()
 

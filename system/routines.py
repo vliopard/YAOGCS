@@ -76,7 +76,8 @@ def copy_g_calendar_recurrent_event_to_ms_outlook(local_g_calendar_connection,
                     g_calendar_instances = local_g_calendar_connection.g_calendar_instances(g_calendar_event_id).get('items',
                                                                                                                      [])
                     ms_outlook_instances = local_ms_outlook_connection.get_recurrence_instances(ms_outlook_entry_id)
-                    local_ms_outlook_connection.set_recurrence_id(g_calendar_event_id)
+                    local_ms_outlook_connection.set_recurrence_id(ms_outlook_master_id,
+                                                                  g_calendar_event_id)
                     for g_calendar_instance, ms_outlook_instance in zip(sort_json_list(g_calendar_instances,
                                                                                        'start.dateTime'),
                                                                         ms_outlook_instances):

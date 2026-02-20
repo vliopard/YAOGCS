@@ -1,12 +1,15 @@
 import ctypes
+import json
 from datetime import datetime
 from time import sleep
 from time import time
 
+from connector.calendar_event import CalendarEvent
 from connector.g_calendar import GoogleCalendarConnector
 from connector.ms_outlook import MicrosoftOutlookConnector
 from system.routines import sync_outlook_to_google
 from utils.utils import line_number
+from utils.utils import object_serializer
 from utils.utils import print_display
 
 
@@ -39,6 +42,62 @@ class SystemObserver:
             ctypes.windll.kernel32.SetThreadExecutionState(self.continuous)
 
 
+def import_export():
+    connection_ms_outlook = MicrosoftOutlookConnector()
+    connection_g_calendar = GoogleCalendarConnector()
+    ms_outlook_events = connection_ms_outlook.get_ms_outlook_events()
+    g_calendar_events = connection_g_calendar.get_g_calendar_events()
+    type_action = 'X'
+    if type_action == 'oo':
+        # ---------------------------
+        # 1. Import Outlook, export Outlook
+        # ---------------------------
+        print('\n=== Import Outlook → Export Outlook ===')
+        for event_id, event_data in ms_outlook_events.items():
+            ue = CalendarEvent()
+            ue.import_ms_outlook(event_data)
+            result = ue.export_ms_outlook()
+            print(f'Outlook Event ID: {event_id}')
+            print(json.dumps(object_serializer(result),
+                             indent=4))
+    if type_action == 'og':
+        # ---------------------------
+        # 2. Import Outlook, export GCal
+        # ---------------------------
+        print('\n=== Import Outlook → Export GCal ===')
+        for event_id, event_data in ms_outlook_events.items():
+            ue = CalendarEvent()
+            ue.import_ms_outlook(event_data)
+            result = ue.export_g_calendar()
+            print(f'Outlook Event ID: {event_id}')
+            print(json.dumps(object_serializer(result),
+                             indent=4))
+    if type_action == 'gg':
+        # ---------------------------
+        # 3. Import GCal, export GCal
+        # ---------------------------
+        print('\n=== Import GCal → Export GCal ===')
+        for event_id, event_data in g_calendar_events.items():
+            ue = CalendarEvent()
+            ue.import_g_calendar(event_data)
+            result = ue.export_g_calendar()
+            print(f'GCal Event ID: {event_id}')
+            print(json.dumps(object_serializer(result),
+                             indent=4))
+    if type_action == 'go':
+        # ---------------------------
+        # 4. Import GCal, export Outlook
+        # ---------------------------
+        print('\n=== Import GCal → Export Outlook ===')
+        for event_id, event_data in g_calendar_events.items():
+            ue = CalendarEvent()
+            ue.import_g_calendar(event_data)
+            result = ue.export_ms_outlook()
+            print(f'GCal Event ID: {event_id}')
+            print(json.dumps(object_serializer(result),
+                             indent=4))
+
+
 def main_observer(enabled=True):
     if enabled:
         print_display(f'{line_number()}')
@@ -56,64 +115,6 @@ def main_observer(enabled=True):
                     print_display(f'[{current_time}] Syncing Outlook to Google...')
                     connection_ms_outlook = MicrosoftOutlookConnector()
                     connection_g_calendar = GoogleCalendarConnector()
-                    '''
-                    ms_outlook_events = connection_ms_outlook.get_ms_outlook_events()
-                    g_calendar_events = connection_g_calendar.get_g_calendar_events()
-
-                    type_action = 'X'
-
-                    if type_action == 'oo':
-                        # ---------------------------
-                        # 1. Import Outlook, export Outlook
-                        # ---------------------------
-                        print('\n=== Import Outlook → Export Outlook ===')
-                        for event_id, event_data in ms_outlook_events.items():
-                            ue = CalendarEvent()
-                            ue.import_ms_outlook(event_data)
-                            result = ue.export_ms_outlook()
-                            print(f'Outlook Event ID: {event_id}')
-                            print(json.dumps(object_serializer(result),
-                                             indent=4))
-
-                    if type_action == 'og':
-                        # ---------------------------
-                        # 2. Import Outlook, export GCal
-                        # ---------------------------
-                        print('\n=== Import Outlook → Export GCal ===')
-                        for event_id, event_data in ms_outlook_events.items():
-                            ue = CalendarEvent()
-                            ue.import_ms_outlook(event_data)
-                            result = ue.export_g_calendar()
-                            print(f'Outlook Event ID: {event_id}')
-                            print(json.dumps(object_serializer(result),
-                                             indent=4))
-
-                    if type_action == 'gg':
-                        # ---------------------------
-                        # 3. Import GCal, export GCal
-                        # ---------------------------
-                        print('\n=== Import GCal → Export GCal ===')
-                        for event_id, event_data in g_calendar_events.items():
-                            ue = CalendarEvent()
-                            ue.import_g_calendar(event_data)
-                            result = ue.export_g_calendar()
-                            print(f'GCal Event ID: {event_id}')
-                            print(json.dumps(object_serializer(result),
-                                             indent=4))
-
-                    if type_action == 'go':
-                        # ---------------------------
-                        # 4. Import GCal, export Outlook
-                        # ---------------------------
-                        print('\n=== Import GCal → Export Outlook ===')
-                        for event_id, event_data in g_calendar_events.items():
-                            ue = CalendarEvent()
-                            ue.import_g_calendar(event_data)
-                            result = ue.export_ms_outlook()
-                            print(f'GCal Event ID: {event_id}')
-                            print(json.dumps(object_serializer(result),
-                                             indent=4))
-                    '''
                     sync_outlook_to_google(connection_ms_outlook,
                                            connection_g_calendar)
                     last_sync = now
@@ -121,6 +122,7 @@ def main_observer(enabled=True):
         except KeyboardInterrupt:
             system_observer.system_original_state()
         print('Bye...')
+
 
 if __name__ == '__main__':
     main_observer(enabled=True)

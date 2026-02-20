@@ -1,6 +1,7 @@
 import json
 import os
 from enum import Enum
+from pathlib import Path
 from threading import Lock
 from typing import Optional
 from typing import Tuple
@@ -18,9 +19,11 @@ class EventSide(Enum):
 class EventMapping:
     VERSION = '1.0'
 
-    def __init__(self,
-                 mapping_file: str = '../resources/database/event_map.json'):
-        self.event_map_file = mapping_file
+    def __init__(self):
+        base_dir = Path(__file__).resolve().parent.parent
+        database_dir = (base_dir / 'resources' / 'database').resolve()
+
+        self.event_map_file = str(database_dir / 'event_map.json')
         self._lock = Lock()
         self._ensure_directory()
         self.event_map = self._load_map()

@@ -1,17 +1,26 @@
+import ctypes
 import logging
 import queue
 import threading
 import time
+from datetime import datetime
 from sys import stdin as sys_standard_in
+from time import sleep
 
 import pystray
+import pythoncom
 import wx
 from PIL import Image
 
 import utils.constants as constants
-from system.observer import main_observer
+from connector.g_calendar import GoogleCalendarConnector
+from connector.ms_outlook import MicrosoftOutlookConnector
+from system.observer import SystemObserver
+from system.routines import sync_outlook_to_google
 from utils.utils import is_windows
+from utils.utils import line_number
 from utils.utils import print_debug
+from utils.utils import print_display
 
 thread_started = time.time()
 system_tray_icon = None
@@ -136,29 +145,53 @@ def update_icon(task_event):
 
 
 def _observer_bridge(tray_q):
-    import pythoncom
-    from system import observer as _so
-
     pythoncom.CoInitialize()
+    system_observer = SystemObserver()
+    last_sync = 0
+    _CHUNK_SECONDS = 5
 
-    original_observer_class = _so.SystemObserver
-
-    class ObserverWithTraySignals(original_observer_class):
-        def system_observer(self):
-            if not self.first_sleep:
-                tray_q.put(constants.PAUSE)
-            super().system_observer()
+    try:
+        while True:
+            # Keep system awake
+            ctypes.windll.kernel32.SetThreadExecutionState(system_observer.continuous | system_observer.system_required | system_observer.display_required)
             tray_q.put(constants.CONTINUE)
 
-        def system_original_state(self):
-            tray_q.put(constants.PAUSE)
-            super().system_original_state()
+            # Sleep in small chunks so the loop stays responsive and logs keep flowing
+            if not system_observer.first_sleep:
+                tray_q.put(constants.PAUSE)
+                elapsed = 0
+                while elapsed < system_observer.sleep_timeout:
+                    sleep(_CHUNK_SECONDS)
+                    elapsed += _CHUNK_SECONDS
+                tray_q.put(constants.CONTINUE)
+            else:
+                system_observer.first_sleep = False
 
-    _so.SystemObserver = ObserverWithTraySignals
-    try:
-        main_observer(enabled=True)
+            now = time.time()
+            antes = datetime.fromtimestamp(now + system_observer.time_out()).strftime('%Y.%m.%d %p %I:%M:%S')
+            nls = now - last_sync
+            print_display(f'{line_number()} [{now}]-[{last_sync}]>=[{nls}][{system_observer.time_out()}]')
+
+            if nls >= system_observer.time_out():
+                current_time = datetime.now().strftime('%Y.%m.%d %p %I:%M:%S')
+                print_display(f'[{current_time}] Syncing Outlook to Google...')
+                try:
+                    connection_ms_outlook = MicrosoftOutlookConnector()
+                    connection_g_calendar = GoogleCalendarConnector()
+                    sync_outlook_to_google(connection_ms_outlook,
+                                           connection_g_calendar)
+                    last_sync = now
+                except Exception as sync_error:
+                    print_display(f'{line_number()} [{current_time}] ERROR during sync: {sync_error}')
+
+            print_display(f'[{antes}] NEXT Syncing Outlook to Google...')
+    except KeyboardInterrupt:
+        tray_q.put(constants.PAUSE)
+        system_observer.system_original_state()
+    except Exception as fatal_error:
+        print_display(f'{line_number()} [FATAL] Observer loop crashed: {fatal_error}')
+        tray_q.put(constants.PAUSE)
     finally:
-        _so.SystemObserver = original_observer_class
         tray_q.put(constants.PAUSE)
         pythoncom.CoUninitialize()
 

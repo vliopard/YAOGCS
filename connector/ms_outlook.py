@@ -387,23 +387,25 @@ class MicrosoftOutlookConnector:
         except ValueError as value_error:
             raise ValueError(f'Invalid start_utc format: [{value_error}]')
         master = self.get_master_by_g_calendar_id(g_calendar_master_id)
-        offset = master.StartUTC.replace(tzinfo=None) - master.Start.replace(tzinfo=None)
-        local_dt = utc_dt - offset
-        print_display(f'{line_number()} master [{local_dt}]  {com_object_to_dictionary(master)}')
-        if not master:
-            print_display(f'{line_number()} Recurring master not found')
-            raise ValueError('Recurring master not found')
-        if not master.IsRecurring:
-            print_display(f'{line_number()} Item is not recurring')
-            raise ValueError('Item is not recurring')
-        recurrence = master.GetRecurrencePattern()
-        print_display(f'{line_number()} recurrence {recurrence}')
-        try:
-            occurrence = recurrence.GetOccurrence(local_dt)
-            return occurrence
-        except Exception as value_error:
-            print_display(f'{line_number()} Occurrence not found: {value_error}')
-            return None
+        if master:
+            offset = master.StartUTC.replace(tzinfo=None) - master.Start.replace(tzinfo=None)
+            local_dt = utc_dt - offset
+            print_display(f'{line_number()} master [{local_dt}]  {com_object_to_dictionary(master)}')
+            if not master:
+                print_display(f'{line_number()} Recurring master not found')
+                raise ValueError('Recurring master not found')
+            if not master.IsRecurring:
+                print_display(f'{line_number()} Item is not recurring')
+                raise ValueError('Item is not recurring')
+            recurrence = master.GetRecurrencePattern()
+            print_display(f'{line_number()} recurrence [{recurrence}]')
+            try:
+                occurrence = recurrence.GetOccurrence(local_dt)
+                return occurrence
+            except Exception as value_error:
+                print_display(f'{line_number()} Occurrence not found: [{value_error}]')
+        print_display(f'{line_number()} MASTER ID not found:[ {g_calendar_master_id}]')
+        return None
 
     def delete_occurrence_by_g_calendar_master_and_start(self,
                                                          g_calendar_master_id: str,
