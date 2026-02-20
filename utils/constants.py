@@ -19,6 +19,7 @@ MAIN = '__main__'
 LABEL_MAIN = 'CalendarSync'
 LABEL_DONE = 'Done'
 LABEL_PAUSE = 'Pause'
+LABEL_RESUME = 'Resume'
 LABEL_ERROR = 'Error'
 LABEL_EXIT = 'Exit'
 

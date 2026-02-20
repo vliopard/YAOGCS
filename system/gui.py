@@ -1,4 +1,5 @@
 import ctypes
+import json
 import logging
 import queue
 import ssl
@@ -6,6 +7,7 @@ import socket
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 from sys import stdin as sys_standard_in
 from time import sleep
 
@@ -28,6 +30,8 @@ thread_started = time.time()
 system_tray_icon = None
 _log_queue = queue.Queue()
 _tray_queue = queue.Queue()
+_pause_event = threading.Event()
+_pause_event.set()  # starts in running state
 wx_app_ref = [None]
 
 if is_windows():
@@ -154,20 +158,32 @@ def _observer_bridge(tray_q):
 
     try:
         while True:
+            # Block here if paused — wakes instantly when resumed
+            if not _pause_event.is_set():
+                print_display(f'{line_number()} Sync paused, waiting for resume...')
+                _pause_event.wait()
+                print_display(f'{line_number()} Sync resumed.')
+
             # Keep system awake
             ctypes.windll.kernel32.SetThreadExecutionState(system_observer.continuous | system_observer.system_required | system_observer.display_required)
             tray_q.put(constants.CONTINUE)
 
-            # Sleep in small chunks so the loop stays responsive and logs keep flowing
+            # Sleep in small chunks so pause is detected quickly mid-wait / the loop stays responsive and logs keep flowing
             if not system_observer.first_sleep:
                 tray_q.put(constants.PAUSE)
                 elapsed = 0
                 while elapsed < system_observer.sleep_timeout:
                     sleep(_CHUNK_SECONDS)
                     elapsed += _CHUNK_SECONDS
+                    if not _pause_event.is_set():
+                        break
                 tray_q.put(constants.CONTINUE)
             else:
                 system_observer.first_sleep = False
+
+            # Re-check pause after sleep in case it was set mid-wait
+            if not _pause_event.is_set():
+                continue
 
             now = time.time()
             antes = datetime.fromtimestamp(now + system_observer.time_out()).strftime('%Y.%m.%d %p %I:%M:%S')
@@ -231,8 +247,16 @@ def tray_icon_click(_,
         system_tray_icon.icon = Image.open(constants.ICON_DONE)
     elif tray_label == constants.LABEL_ERROR:
         system_tray_icon.icon = Image.open(constants.ICON_ERROR)
-    elif tray_label == constants.LABEL_PAUSE:
-        system_tray_icon.icon = Image.open(constants.ICON_PAUSE)
+    elif tray_label in (constants.LABEL_PAUSE, constants.LABEL_RESUME):
+        if _pause_event.is_set():
+            _pause_event.clear()
+            system_tray_icon.icon = Image.open(constants.ICON_PAUSE)
+            print_display(f'{line_number()} Sync paused by user.')
+        else:
+            _pause_event.set()
+            system_tray_icon.icon = Image.open(constants.ICON_DONE)
+            print_display(f'{line_number()} Sync resumed by user.')
+        system_tray_icon.update_menu()
     elif tray_label == 'Logs':
         system_tray_icon.icon = Image.open(constants.ICON_LOG)
         if wx_app_ref[0] is not None:
@@ -256,7 +280,7 @@ def _run_tray():
                                     menu=pystray.Menu(pystray.MenuItem(constants.LABEL_DONE,
                                                                        tray_icon_click,
                                                                        checked=lambda item: state),
-                                                      pystray.MenuItem(constants.LABEL_PAUSE,
+                                                      pystray.MenuItem(lambda item: constants.LABEL_PAUSE if _pause_event.is_set() else constants.LABEL_RESUME,
                                                                        tray_icon_click,
                                                                        checked=lambda item: state),
                                                       pystray.MenuItem(constants.LABEL_ERROR,
@@ -294,6 +318,29 @@ class WxTextCtrlHandler(logging.Handler):
                      record_message + '\n')
 
 
+_WINDOW_STATE_FILE = str((Path(__file__).resolve().parent.parent / 'resources' / 'database' / 'log_window_state.json').resolve())
+_WINDOW_DEFAULT_SIZE = (800, 500)
+_WINDOW_DEFAULT_POS = wx.DefaultPosition
+
+
+def _load_window_state():
+    try:
+        with open(_WINDOW_STATE_FILE, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+            return (state['x'], state['y']), (state['width'], state['height'])
+    except Exception:
+        return None, None
+
+
+def _save_window_state(x, y, width, height):
+    try:
+        Path(_WINDOW_STATE_FILE).parent.mkdir(parents=True, exist_ok=True)
+        with open(_WINDOW_STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'x': x, 'y': y, 'width': width, 'height': height}, f, indent=4)
+    except Exception:
+        pass
+
+
 class LogFrame(wx.Frame):
     _POLL_INTERVAL_MS = 200
 
@@ -301,10 +348,13 @@ class LogFrame(wx.Frame):
                  log_queue,
                  history,
                  on_close_cb=None):
+        saved_pos, saved_size = _load_window_state()
+        pos = wx.Point(*saved_pos) if saved_pos else _WINDOW_DEFAULT_POS
+        size = saved_size if saved_size else _WINDOW_DEFAULT_SIZE
         super().__init__(None,
                          title='Log Viewer',
-                         size=(800,
-                               500))
+                         pos=pos,
+                         size=size)
         self._log_queue = log_queue
         self._history = history
         self._on_close_cb = on_close_cb
@@ -344,6 +394,10 @@ class LogFrame(wx.Frame):
                   event):
         print_debug(event)
         self._poll_timer.Stop()
+        if not self.IsIconized() and not self.IsMaximized():
+            pos = self.GetPosition()
+            size = self.GetSize()
+            _save_window_state(pos.x, pos.y, size.width, size.height)
         if self._on_close_cb:
             self._on_close_cb()
         self.Destroy()

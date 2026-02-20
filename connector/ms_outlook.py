@@ -365,10 +365,10 @@ class MicrosoftOutlookConnector:
         for item in items:
             if item.IsRecurring:
                 try:
-                    print_display(f'{line_number()} Checking item [{item.Subject}] (IsRecurring: {item.IsRecurring})')
+                    print_display(f'{line_number()} Checking item [{item.Subject}] (IsRecurring: [{item.IsRecurring}])')
                     prop = item.UserProperties.Find('GCalendarMasterID')
-                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: {prop.Value if prop else "Not Set"}')
-                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: {g_calendar_master_id}')
+                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{prop.Value if prop else "Not Set"}]')
+                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{g_calendar_master_id[-10:]}]')
                     if prop and prop.Value == g_calendar_master_id:
                         return item
                 except Exception as exception:
