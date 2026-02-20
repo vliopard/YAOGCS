@@ -25,6 +25,7 @@ from utils.utils import is_windows
 from utils.utils import line_number
 from utils.utils import print_debug
 from utils.utils import print_display
+from utils.utils import PauseToken
 
 thread_started = time.time()
 system_tray_icon = None
@@ -158,10 +159,12 @@ def _observer_bridge(tray_q):
 
     try:
         while True:
-            # Block here if paused — wakes instantly when resumed
+            # Block here if paused - zero CPU spin, wakes instantly on resume
             if not _pause_event.is_set():
                 print_display(f'{line_number()} Sync paused, waiting for resume...')
+                tray_q.put(constants.PAUSE)
                 _pause_event.wait()
+                tray_q.put(constants.CONTINUE)
                 print_display(f'{line_number()} Sync resumed.')
 
             # Keep system awake
@@ -210,9 +213,14 @@ def _observer_bridge(tray_q):
                     try:
                         connection_ms_outlook = MicrosoftOutlookConnector()
                         connection_g_calendar = GoogleCalendarConnector()
+                        pause_token = PauseToken(_pause_event)
                         sync_outlook_to_google(connection_ms_outlook,
-                                               connection_g_calendar)
+                                               connection_g_calendar,
+                                               pause_token)
                         sync_succeeded = True
+                        break
+                    except PauseToken.Interrupted:
+                        print_display(f'{line_number()} Sync interrupted by pause.')
                         break
                     except _TRANSIENT as net_error:
                         if sync_attempt < _SYNC_MAX_RETRIES:

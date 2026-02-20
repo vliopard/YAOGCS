@@ -1,6 +1,7 @@
 import gc
 import inspect
 import os
+import threading
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -15,6 +16,29 @@ import utils.constants as constants
 from utils.screen import get_terminal_width
 
 _gui_log_queue = None
+
+
+class PauseToken:
+    """Cooperative pause token passed into sync routines.
+    Each loop calls check() between iterations - blocks if paused, returns
+    instantly if running. Raise PauseToken.Interrupted to abort early."""
+
+    class Interrupted(Exception):
+        pass
+
+    def __init__(self, event: threading.Event):
+        self._event = event
+
+    def check(self):
+        """Block while paused. If still paused after waking, raise Interrupted."""
+        if not self._event.is_set():
+            self._event.wait()
+            if not self._event.is_set():
+                raise PauseToken.Interrupted()
+
+    @property
+    def is_paused(self):
+        return not self._event.is_set()
 
 
 def set_log_queue(q):

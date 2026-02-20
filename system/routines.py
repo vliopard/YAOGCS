@@ -7,14 +7,17 @@ from utils.utils import line_number
 from utils.utils import com_object_to_dictionary
 from utils.utils import print_display
 from utils.utils import sort_json_list
+from utils.utils import PauseToken
 
 
 def copy_ms_outlook_single_event_to_g_calendar(local_ms_outlook_connection,
                                                local_g_calendar_connection,
-                                               event_mapping):
+                                               event_mapping,
+                                               pause_token: PauseToken):
     print_display(f'{line_number()}')
-    ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events()
+    ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events(pause_token)
     for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
+        pause_token.check()
         if not ms_outlook_current_event.get('IsRecurring',
                                             False):
             single_pair = event_mapping.get_single_event_pair(ms_outlook_current_id)
@@ -33,10 +36,12 @@ def copy_ms_outlook_single_event_to_g_calendar(local_ms_outlook_connection,
 
 def copy_g_calendar_single_event_to_ms_outlook(local_g_calendar_connection,
                                                local_ms_outlook_connection,
-                                               event_mapping):
+                                               event_mapping,
+                                               pause_token: PauseToken):
     print_display(f'{line_number()}')
     g_calendar_all_events = local_g_calendar_connection.get_g_calendar_events()
     for g_calendar_event_id, g_calendar_event_item in g_calendar_all_events.items():
+        pause_token.check()
         recurrence_one = 'recurrence' in g_calendar_event_item
         recurrence_two = 'recurringEventId' in g_calendar_event_item
         if not recurrence_one and not recurrence_two:
@@ -55,10 +60,12 @@ def copy_g_calendar_single_event_to_ms_outlook(local_g_calendar_connection,
 
 def copy_g_calendar_recurrent_event_to_ms_outlook(local_g_calendar_connection,
                                                   local_ms_outlook_connection,
-                                                  event_mapping):
+                                                  event_mapping,
+                                                  pause_token: PauseToken):
     print_display(f'{line_number()} START')
     g_calendar_events_local = local_g_calendar_connection.g_calendar_events
     for g_calendar_event_id, g_calendar_event_data in g_calendar_events_local.items():
+        pause_token.check()
         if 'recurrence' in g_calendar_event_data:
             master_pair = event_mapping.get_recurrent_master_pair(g_calendar_event_id)
             if not master_pair:
@@ -107,10 +114,12 @@ def get_master_id(text: str) -> str:
 
 def copy_ms_outlook_recurrent_event_to_g_calendar(local_ms_outlook_connection,
                                                   local_g_calendar_connection,
-                                                  event_mapping):
+                                                  event_mapping,
+                                                  pause_token: PauseToken):
     print_display(f'{line_number()}')
-    ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events()
+    ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events(pause_token)
     for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
+        pause_token.check()
         if ms_outlook_current_event.get('IsRecurring',
                                         True):
             master_pair = event_mapping.get_recurrent_master_pair(ms_outlook_current_id)
@@ -154,14 +163,16 @@ def copy_ms_outlook_recurrent_event_to_g_calendar(local_ms_outlook_connection,
 
 def replicate_deletion_from_ms_outlook_to_g_calendar_single_event(local_g_calendar_connection,
                                                                   local_ms_outlook_connection,
-                                                                  event_mapping):
+                                                                  event_mapping,
+                                                                  pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted single events in Outlook...')
-    current_ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events()
+    current_ms_outlook_events = local_ms_outlook_connection.get_ms_outlook_events(pause_token)
     current_ms_outlook_ids = set(current_ms_outlook_events.keys())
     all_mappings = event_mapping.get_all_mappings()
     mapped_ms_outlook_ids = set(all_mappings['single_events'].keys())
     deleted_ms_outlook_ids = mapped_ms_outlook_ids - current_ms_outlook_ids
     for ms_outlook_id in deleted_ms_outlook_ids:
+        pause_token.check()
         pair = event_mapping.get_single_event_pair(ms_outlook_id)
         if not pair or pair[1] is None:
             continue
@@ -185,7 +196,8 @@ def replicate_deletion_from_ms_outlook_to_g_calendar_single_event(local_g_calend
 
 def replicate_deletion_from_g_calendar_to_ms_outlook_single_event(local_g_calendar_connection,
                                                                   local_ms_outlook_connection,
-                                                                  event_mapping):
+                                                                  event_mapping,
+                                                                  pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted single events in Google Calendar...')
     current_g_calendar_events = local_g_calendar_connection.get_g_calendar_events()
     current_g_calendar_ids = set(current_g_calendar_events.keys())
@@ -194,6 +206,7 @@ def replicate_deletion_from_g_calendar_to_ms_outlook_single_event(local_g_calend
     mapped_g_calendar_ids.discard(None)
     deleted_g_calendar_ids = mapped_g_calendar_ids - current_g_calendar_ids
     for g_calendar_id in deleted_g_calendar_ids:
+        pause_token.check()
         pair = event_mapping.get_single_event_pair(g_calendar_id)
         if not pair or pair[0] is None:
             continue
@@ -218,10 +231,12 @@ def replicate_deletion_from_g_calendar_to_ms_outlook_single_event(local_g_calend
 
 def replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_event(local_g_calendar_connection,
                                                                                      local_ms_outlook_connection,
-                                                                                     event_mapping):
+                                                                                     event_mapping,
+                                                                                     pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted recurrent events in Microsoft Outlook...')
     master_pair = event_mapping.get_all_mappings()
     for ms_outlook_id in master_pair['recurrent_events']:
+        pause_token.check()
         for i in master_pair['recurrent_events'][ms_outlook_id]['instances']:
             g_calendar_id = master_pair['recurrent_events'][ms_outlook_id]['instances'][i]
             d_id = extract_date_full(g_calendar_id)
@@ -246,10 +261,12 @@ def replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_e
 
 def replicate_deletion_of_single_event_from_g_calendar_to_ms_outlook_recurrent_event(local_g_calendar_connection,
                                                                                      local_ms_outlook_connection,
-                                                                                     event_mapping):
+                                                                                     event_mapping,
+                                                                                     pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted recurrent events in Google Calendar...')
     master_pair = event_mapping.get_all_mappings()
     for ms_outlook_id in master_pair['recurrent_events']:
+        pause_token.check()
         for i in master_pair['recurrent_events'][ms_outlook_id]['instances']:
             g_calendar_id = master_pair['recurrent_events'][ms_outlook_id]['instances'][i]
             instance = local_g_calendar_connection.g_calendar_instance(g_calendar_id)
@@ -271,11 +288,13 @@ def replicate_deletion_of_single_event_from_g_calendar_to_ms_outlook_recurrent_e
 
 def replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(g_calendar_local_connection,
                                                                      ms_outlook_local_connection,
-                                                                     event_mapping):
+                                                                     event_mapping,
+                                                                     pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted recurrent event in Outlook...')
     all_mappings = event_mapping.get_all_mappings()
     recurrent_events = all_mappings['recurrent_events']
     for ms_outlook_master_id, master_data in recurrent_events.items():
+        pause_token.check()
         g_calendar_master_id = master_data['g_calendar_master_id']
         g_calendar_master_idr = get_master_id(g_calendar_master_id)
         g_calendar_instance_exists = g_calendar_local_connection.g_calendar_instance(g_calendar_master_id)
@@ -290,11 +309,13 @@ def replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(g_calendar_
 
 def replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(g_calendar_local_connection,
                                                                      ms_outlook_local_connection,
-                                                                     event_mapping):
+                                                                     event_mapping,
+                                                                     pause_token: PauseToken):
     print_display(f'{line_number()} Checking for deleted recurrent event in Outlook...')
     all_mappings = event_mapping.get_all_mappings()
     recurrent_events = all_mappings['recurrent_events']
     for ms_outlook_master_id, master_data in recurrent_events.items():
+        pause_token.check()
         g_calendar_master_id = master_data['g_calendar_master_id']
         g_calendar_master_idr = get_master_id(g_calendar_master_id)
         g_calendar_instance_exists = g_calendar_local_connection.g_calendar_instance(g_calendar_master_id)
@@ -315,36 +336,47 @@ def replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(g_calendar_
 
 
 def sync_outlook_to_google(local_ms_outlook_connection,
-                           local_g_calendar_connection):
+                           local_g_calendar_connection,
+                           pause_token: PauseToken):
     print_display(f'{line_number()}')
     event_mapping = EventMapping()
     replicate_deletion_from_ms_outlook_to_g_calendar_single_event(local_g_calendar_connection,
                                                                   local_ms_outlook_connection,
-                                                                  event_mapping)
+                                                                  event_mapping,
+                                                                  pause_token)
     replicate_deletion_from_g_calendar_to_ms_outlook_single_event(local_g_calendar_connection,
                                                                   local_ms_outlook_connection,
-                                                                  event_mapping)
+                                                                  event_mapping,
+                                                                  pause_token)
     replicate_deletion_of_single_event_from_g_calendar_to_ms_outlook_recurrent_event(local_g_calendar_connection,
                                                                                      local_ms_outlook_connection,
-                                                                                     event_mapping)
+                                                                                     event_mapping,
+                                                                                     pause_token)
     replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_event(local_g_calendar_connection,
                                                                                      local_ms_outlook_connection,
-                                                                                     event_mapping)
+                                                                                     event_mapping,
+                                                                                     pause_token)
     replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(local_g_calendar_connection,
                                                                      local_ms_outlook_connection,
-                                                                     event_mapping)
+                                                                     event_mapping,
+                                                                     pause_token)
     replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(local_g_calendar_connection,
                                                                      local_ms_outlook_connection,
-                                                                     event_mapping)
+                                                                     event_mapping,
+                                                                     pause_token)
     copy_ms_outlook_single_event_to_g_calendar(local_ms_outlook_connection,
                                                local_g_calendar_connection,
-                                               event_mapping)
+                                               event_mapping,
+                                               pause_token)
     copy_g_calendar_single_event_to_ms_outlook(local_g_calendar_connection,
                                                local_ms_outlook_connection,
-                                               event_mapping)
+                                               event_mapping,
+                                               pause_token)
     copy_ms_outlook_recurrent_event_to_g_calendar(local_ms_outlook_connection,
                                                   local_g_calendar_connection,
-                                                  event_mapping)
+                                                  event_mapping,
+                                                  pause_token)
     copy_g_calendar_recurrent_event_to_ms_outlook(local_g_calendar_connection,
                                                   local_ms_outlook_connection,
-                                                  event_mapping)
+                                                  event_mapping,
+                                                  pause_token)

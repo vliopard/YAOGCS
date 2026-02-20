@@ -41,7 +41,8 @@ class MicrosoftOutlookConnector:
                             entry_id):
         return com_object_to_dictionary(self.ms_outlook_data.ms_outlook_get_item(entry_id))
 
-    def get_ms_outlook_events(self):
+    def get_ms_outlook_events(self,
+                              pause_token=None):
         time_now = datetime.now()
         time_begin = time_now - timedelta(days=18)
         time_end = time_now + timedelta(days=180)
@@ -57,6 +58,8 @@ class MicrosoftOutlookConnector:
         for item_index, item in enumerate(tqdm(selected_items,
                                                desc='Processing Outlook items',
                                                total=len(selected_items))):
+            if pause_token is not None:
+                pause_token.check()
             local_event_data = dict()
             try:
                 item_properties = [item_attributes for item_attributes in dir(item) if not item_attributes.startswith('_')]
@@ -362,19 +365,26 @@ class MicrosoftOutlookConnector:
         ms_outlook_helper = MicrosoftOutlookHelper()
         items = ms_outlook_helper.ms_outlook_items()
         items.IncludeRecurrences = False
-        for item in items:
-            if item.IsRecurring:
-                try:
-                    print_display(f'{line_number()} Checking item [{item.Subject}] (IsRecurring: [{item.IsRecurring}])')
-                    prop = item.UserProperties.Find('GCalendarMasterID')
-                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{prop.Value if prop else "Not Set"}]')
-                    print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{g_calendar_master_id[-10:]}]')
-                    if prop and prop.Value == g_calendar_master_id:
-                        return item
-                except Exception as exception:
-                    print_display(f'{line_number()}  Error checking GCalendarMasterID for item [{item.Subject}]: [{exception}]')
-                    continue
-        print_display(f'{line_number()}  Not Found')
+        time_now = datetime.now()
+        time_begin = (time_now - timedelta(days=18)).strftime('%m/%d/%Y %H:%M %p')
+        time_end = (time_now + timedelta(days=180)).strftime('%m/%d/%Y %H:%M %p')
+        restriction = f"[Start] >= '{time_begin}' AND [Start] <= '{time_end}'"
+        restricted_items = items.Restrict(restriction)
+        for item in restricted_items:
+            if not item.IsRecurring:
+                continue
+            try:
+                print_display(f'{line_number()} Checking item [{item.Subject}] (IsRecurring: [{item.IsRecurring}])')
+                prop = item.UserProperties.Find('GCalendarMasterID')
+                print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{prop.Value if prop else "Not Set"}]')
+                print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{g_calendar_master_id[-10:]}]')
+                if prop and prop.Value == g_calendar_master_id:
+                    print_display(f'{line_number()} Found master [{item.Subject}] for GCalendarMasterID [{g_calendar_master_id[-10:]}]')
+                    return item
+            except Exception as exception:
+                print_display(f'{line_number()} Error checking GCalendarMasterID for item [{item.Subject}]: [{exception}]')
+                continue
+        print_display(f'{line_number()} Master not found for GCalendarMasterID [{g_calendar_master_id[-10:]}]')
         return None
 
     def get_occurrence_by_g_calendar_master_and_start(self,
