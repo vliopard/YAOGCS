@@ -8,6 +8,7 @@ import pywintypes
 import win32com.client
 from tqdm import tqdm
 
+import utils.constants as constants
 from utils.utils import _release
 from utils.utils import com_object_to_dictionary
 from utils.utils import line_number
@@ -45,8 +46,8 @@ class MicrosoftOutlookConnector:
 
     def get_ms_outlook_events(self):
         time_now = datetime.now()
-        time_begin = time_now - timedelta(days=18)
-        time_end = time_now + timedelta(days=180)
+        time_begin = time_now - timedelta(days=constants.DAYS_PAST)
+        time_end = time_now + timedelta(days=constants.DAYS_NEXT)
         items = self.ms_outlook_data.ms_outlook_items()
         items.IncludeRecurrences = False
         items.Sort('[Start]')
@@ -387,8 +388,8 @@ class MicrosoftOutlookConnector:
         items = ms_outlook_helper.ms_outlook_items()
         items.IncludeRecurrences = False
         time_now = datetime.now()
-        time_begin = (time_now - timedelta(days=18)).strftime('%m/%d/%Y %H:%M %p')
-        time_end = (time_now + timedelta(days=180)).strftime('%m/%d/%Y %H:%M %p')
+        time_begin = (time_now - timedelta(days=constants.DAY_PAST)).strftime('%m/%d/%Y %H:%M %p')
+        time_end = (time_now + timedelta(days=constants.DAY_NEXT)).strftime('%m/%d/%Y %H:%M %p')
         restriction = f"[Start] >= '{time_begin}' AND [Start] <= '{time_end}'"
         restricted_items = items.Restrict(restriction)
         for item in restricted_items:

@@ -6,6 +6,7 @@ from datetime import timezone
 
 from dateutil import parser
 
+import utils.constants as constants
 from utils.utils import line_number
 from utils.utils import print_display
 
@@ -94,11 +95,11 @@ def time_when(shift):
 
 
 def time_min():
-    return time_when(-18)
+    return time_when(-constants.DAY_PAST)
 
 
 def time_max():
-    return time_when(90)
+    return time_when(constants.DAY_NEXT)
 
 
 def _add_months(date_time,
