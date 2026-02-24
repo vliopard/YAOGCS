@@ -25,6 +25,7 @@ from utils.utils import line_number
 from utils.utils import print_display
 
 constants.RUN_GUI = True
+first_time = True
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -291,11 +292,15 @@ def function_observer():
 
 
 def function_sync_job(event_mapping):
+    global first_time
     logger.info('[Sync Job] started')
     pythoncom.CoInitialize()
     try:
         check_pause()
-        sync_task(event_mapping)
+        if not first_time:
+            sync_task(event_mapping)
+        else:
+            first_time = False
         interruptible_sleep(4)
     except StopIteration:
         logger.warning('[Sync Job] interrupted')
