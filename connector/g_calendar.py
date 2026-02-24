@@ -222,7 +222,9 @@ class GoogleCalendarConnector:
                 smm = event_body['summary']
                 print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [The requested identifier <{cuid}> <{smm}> already exists.]')
             else:
-                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [{http_error}]')
+                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
+                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [{event_body["organizer"]}]')
+                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [{event_body["attendees"]}]')
         return insert_result
 
     def g_calendar_update(self,
