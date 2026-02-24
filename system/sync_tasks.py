@@ -179,7 +179,7 @@ def copy_ms_outlook_single_event_to_g_calendar(event_mapping):
                 calendar_event = CalendarEvent()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
                 g_calendar_exported_event = calendar_event.export_g_calendar()
-                print_display(f'{line_number()} INSERTING EVENT: [{ms_outlook_current_event[-10:]}]')
+                print_display(f'{line_number()} INSERTING EVENT: [{ms_outlook_current_id[-10:]}]')
                 g_calendar_inserted_appointment = local_g_calendar_connection.g_calendar_insert(g_calendar_exported_event)
                 if g_calendar_inserted_appointment:
                     g_calendar_master_id = g_calendar_inserted_appointment.get('id')
