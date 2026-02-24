@@ -7,6 +7,8 @@ from utils.utils import com_object_to_dictionary
 from utils.utils import get_master_id
 from utils.utils import line_number
 from utils.utils import print_display
+from utils.utils import print_overline
+from utils.utils import print_underline
 from utils.utils import sort_json_list
 
 
@@ -153,8 +155,9 @@ def replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(event_mappi
         ms_outlook_master_id_item = com_object_to_dictionary(ms_outlook_instance_exists)
         if 'EntryID' in ms_outlook_master_id_item:
             ms_outlook_master_index = ms_outlook_master_id_item['EntryID']
-            print_display(f'{line_number()} Checking master event [Microsoft Outlook] [{ms_outlook_instance_exists}] <=> [Google Calendar] [{g_calendar_master_id}]')
-            print_display(f'{line_number()} Checking master event [Microsoft Outlook] [{ms_outlook_instance_exists}] <=> [Google Calendar] [{g_calendar_instance_exists}]')
+            g_calendar_instance_id = g_calendar_instance_exists['id'][-10:]
+            print_display(f'{line_number()} Checking master event [Microsoft Outlook] [{ms_outlook_master_index}] <=> [Google Calendar] [{g_calendar_master_id[-10:]}]')
+            print_display(f'{line_number()} Checking master event [Microsoft Outlook] [{ms_outlook_master_index}] <=> [Google Calendar] [{g_calendar_instance_id}]')
             if g_calendar_instance_exists['status'] == 'cancelled':
                 ms_outlook_local_connection.ms_outlook_delete_event(ms_outlook_master_index)
                 print_display(f'{line_number()} Successfully deleted [Google Calendar] instance')
@@ -311,16 +314,36 @@ def copy_g_calendar_recurrent_event_to_ms_outlook(event_mapping):
 
 
 def sync_task(event_mapping):
-    replicate_deletion_from_ms_outlook_to_g_calendar_single_event(event_mapping)
-    replicate_deletion_from_g_calendar_to_ms_outlook_single_event(event_mapping)
-    replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_event(event_mapping)
-    replicate_deletion_of_single_event_from_g_calendar_to_ms_outlook_recurrent_event(event_mapping)
-    replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(event_mapping)
-    replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(event_mapping)
-    copy_ms_outlook_single_event_to_g_calendar(event_mapping)
-    copy_g_calendar_single_event_to_ms_outlook(event_mapping)
-    copy_ms_outlook_recurrent_event_to_g_calendar(event_mapping)
-    copy_g_calendar_recurrent_event_to_ms_outlook(event_mapping)
+    ms_outlook_to_g_calendar = 'Microsoft Outlook to Google Calendar'
+    g_calendar_to_ms_outlook = 'Google Calendar to Microsoft Outlook'
+    ways = [ms_outlook_to_g_calendar,
+
+            # g_calendar_to_ms_outlook
+            ]
+    print_underline()
+    if ms_outlook_to_g_calendar in ways and g_calendar_to_ms_outlook in ways:
+        print_display(f'{line_number()} Starting synchronization task: [Microsoft Outlook] <=> [Google Calendar]')
+    elif ms_outlook_to_g_calendar in ways:
+        print_display(f'{line_number()} Starting synchronization task: [Microsoft Outlook] => [Google Calendar]')
+    elif g_calendar_to_ms_outlook in ways:
+        print_display(f'{line_number()} Starting synchronization task: [Google Calendar] => [Microsoft Outlook]')
+    print_overline()
+    if ms_outlook_to_g_calendar in ways:
+        # Microsoft Outlook to Google Calendar
+        replicate_deletion_from_ms_outlook_to_g_calendar_single_event(event_mapping)
+        replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_event(event_mapping)
+        replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(event_mapping)
+        copy_ms_outlook_single_event_to_g_calendar(event_mapping)
+        copy_ms_outlook_recurrent_event_to_g_calendar(event_mapping)
+    if g_calendar_to_ms_outlook in ways:
+        # Google Calendar to Microsoft Outlook
+        replicate_deletion_from_g_calendar_to_ms_outlook_single_event(event_mapping)
+        replicate_deletion_of_single_event_from_g_calendar_to_ms_outlook_recurrent_event(event_mapping)
+        replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(event_mapping)
+        copy_g_calendar_single_event_to_ms_outlook(event_mapping)
+        copy_g_calendar_recurrent_event_to_ms_outlook(event_mapping)
+
+    # TODO: IF EVENT INFORMATION CHANGES, SYNC DATA (HOW TO KNOW WHO CHANGED?) HASH1<=>HASH1 / HASH1<=>HASH_C / HASH_C<=>HASH1
 
 
 if __name__ == '__main__':

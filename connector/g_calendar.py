@@ -136,12 +136,21 @@ class GoogleCalendarHelper:
     @_google_api_retry
     def delete_g_calendar_event(self,
                                 g_calendar_instance):
+        result = 'Failed'
+        existed = False
         try:
-            return self.g_calendar_service.events().delete(calendarId=self.g_calendar_id,
-                                                           eventId=g_calendar_instance).execute()
+            result = self.g_calendar_service.events().get(calendarId=self.g_calendar_id,
+                                                 eventId=g_calendar_instance).execute()
+            existed = True
         except HttpError as http_error:
-            print_display(f'{line_number()} [Google Calendar] DELETE ERROR: [{http_error.status_code}]')
-            return 'Failed'
+            print_display(f'{line_number()} [Google Calendar] GET DELETE ERROR: [{http_error.status_code} | {http_error.error_details}]')
+        try:
+            if existed:
+                result = self.g_calendar_service.events().delete(calendarId=self.g_calendar_id,
+                                                                 eventId=g_calendar_instance).execute()
+        except HttpError as http_error:
+            print_display(f'{line_number()} [Google Calendar] DELETE ERROR: [{http_error.status_code} | {http_error.error_details}]')
+        return result
 
     @_google_api_retry
     def get_g_calendar_event_instance(self,
@@ -165,6 +174,9 @@ class GoogleCalendarConnector:
         local_g_calendar_cancelled = dict()
         local_g_calendar_event_end_dates = dict()
         for g_calendar_single_event in g_calendar_events_list:
+            print('=' * 100)
+            print(g_calendar_single_event)
+            print('=' * 100)
             g_calendar_event_id = g_calendar_single_event['id']
             local_g_calendar_events[g_calendar_event_id] = g_calendar_single_event
             if 'recurrence' in g_calendar_single_event:

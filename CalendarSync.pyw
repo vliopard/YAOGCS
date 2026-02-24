@@ -7,6 +7,7 @@ import queue
 import threading
 import time
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 from tkinter import scrolledtext
 
@@ -277,34 +278,31 @@ def _job_wrapper(func,
 # Worker functions — replace bodies with real logic
 # ---------------------------------------------------------------------------
 def function_observer():
+    logger.info('[Observer] started')
     system_observer = SystemObserver()
     try:
         system_observer.system_observer_state()
         check_pause()
         interruptible_sleep(3)
     except StopIteration:
-        logger.warning('Observer Task interrupted')
+        logger.warning('[Observer] interrupted')
         system_observer.system_original_state()
-    logger.info('Observer Task started')
+    logger.info('[Observer] Cycled')
 
 
 def function_sync_job(event_mapping):
+    logger.info('[Sync Job] started')
     pythoncom.CoInitialize()
     try:
-        steps = range(1,
-                      6)
-        for step in steps:
-            check_pause()
-            sync_task(event_mapping)
-            logger.info(f'  Sync Job step {step}/{len(steps)}')
-            interruptible_sleep(4)
-        logger.info('Sync Job finished')
+        check_pause()
+        sync_task(event_mapping)
+        interruptible_sleep(4)
     except StopIteration:
-        logger.warning('Sync Job interrupted')
+        logger.warning('[Sync Job] interrupted')
     finally:
         # Always uninitialize COM to clean up resources
         pythoncom.CoUninitialize()
-    logger.info('Sync Job started')
+    logger.info('[Sync Job] Cycled')
 
 
 # ---------------------------------------------------------------------------
@@ -341,9 +339,12 @@ def main_loop():
         if now - last_observer >= INTERVAL_OBSERVER:
             last_observer = time.monotonic()
             if not running_observer.is_set():
-                logger.debug('Scheduling Observer Task')
+                logger.info('Scheduling [Observer]...')
                 threading.Thread(target=run_observer,
                                  daemon=True).start()
+                # Log next Observer run
+                next_obs = datetime.fromtimestamp(time.time() + INTERVAL_OBSERVER).strftime('%Y.%m.%d %p %I:%M:%S')
+                logger.info(f'Next [[OBSERVER]] scheduled for [{next_obs}]')
             else:
                 logger.warning('Observer Task still running — skipping this cycle')
 
@@ -351,10 +352,12 @@ def main_loop():
         if now - last_sync_job >= INTERVAL_SYNC_JOB:
             last_sync_job = time.monotonic()
             if not running_sync_job.is_set():
-                logger.debug('Scheduling Sync Job')
+                logger.info('Scheduling [Sync Job]...')
                 threading.Thread(target=run_sync_job,
                                  args=(event_mapping,),
                                  daemon=True).start()
+                next_sync = datetime.fromtimestamp(time.time() + INTERVAL_SYNC_JOB).strftime('%Y.%m.%d %p %I:%M:%S')
+                logger.info(f'Next [[SYNC JOB]] scheduled for [{next_sync}]')
             else:
                 logger.warning('Sync Job still running — skipping this cycle')
 

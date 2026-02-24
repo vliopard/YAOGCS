@@ -98,7 +98,7 @@ def time_min():
 
 
 def time_max():
-    return time_when(180)
+    return time_when(90)
 
 
 def _add_months(date_time,
