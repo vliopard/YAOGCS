@@ -74,6 +74,7 @@ class MicrosoftOutlookConnector:
                                          item_property)
                     if callable(item_value):
                         continue
+                    '''
                     if item_property == 'Recipients':
                         attendees = []
                         for recipient in item.Recipients:
@@ -81,8 +82,9 @@ class MicrosoftOutlookConnector:
                                     'email': recipient.Address})
                             _release(recipient)
                         local_event_data[item_property] = attendees
-                    elif item_property in ('Start',
-                                           'End'):
+                    '''
+                    if item_property in ('Start',
+                                         'End'):
                         if hasattr(item_value,
                                    'Format'):
                             local_event_data[item_property] = item_value.Format('%Y-%m-%dT%H:%M:%S')
@@ -177,6 +179,7 @@ class MicrosoftOutlookConnector:
                                          2)
             if busy_status is not None:
                 appointment.BusyStatus = int(busy_status)
+            '''
             required_attendees = event_body.get('RequiredAttendees',
                                                 '')
             optional_attendees = event_body.get('OptionalAttendees',
@@ -195,6 +198,7 @@ class MicrosoftOutlookConnector:
                         recipient.Type = 2  # 2 = Optional
             if appointment.Recipients.Count > 0:
                 appointment.Recipients.ResolveAll()
+            '''
             if event_body.get('IsRecurring'):
                 recurrence = appointment.GetRecurrencePattern()
                 recurrence.RecurrenceType = int(event_body.get('recurrence_type',
@@ -290,6 +294,7 @@ class MicrosoftOutlookConnector:
                 busy_status = event_body['BusyStatus']
                 if busy_status is not None:
                     appointment.BusyStatus = int(busy_status)
+            '''
             if 'RequiredAttendees' in event_body or 'OptionalAttendees' in event_body:
                 while appointment.Recipients.Count > 0:
                     appointment.Recipients.Remove(1)
@@ -301,6 +306,7 @@ class MicrosoftOutlookConnector:
                             if email:
                                 recipient = appointment.Recipients.Add(email)
                                 recipient.Type = 1  # 1 = Required
+                
                 if 'OptionalAttendees' in event_body:
                     optional_attendees = event_body['OptionalAttendees']
                     if optional_attendees:
@@ -311,6 +317,7 @@ class MicrosoftOutlookConnector:
                                 recipient.Type = 2  # 2 = Optional
                 if appointment.Recipients.Count > 0:
                     appointment.Recipients.ResolveAll()
+            '''
             appointment.Save()
             print_display(f'{line_number()} [Microsoft Outlook] UPDATE SUCCESS: Event [{appointment.Subject}] updated')
             return appointment

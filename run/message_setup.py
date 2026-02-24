@@ -18,7 +18,10 @@ class MessageSetup:
                                        title: str,
                                        location: str,
                                        body: str,
-                                       attendees: list):
+
+                                       # attendees: list
+
+                                       ):
         date_start = f'{start_day}T{start_time}:00'
         date_end = f'{start_day}T{end_time}:00'
         event = {
@@ -31,8 +34,12 @@ class MessageSetup:
                 'end'        : {
                         'dateTime': date_end,
                         'timeZone': 'America/Sao_Paulo'},
-                'attendees'  : [{
-                        'email': email} for email in attendees], }
+                }
+        """
+        'attendees'  : [{
+                'email': email} for email in attendees],
+        """
+
         event = self.g_calendar_connection.g_calendar_insert(event)
         htm_link = event.get('htmlLink')
         print_display(f'{line_number()} Single Google Calendar event created: [{htm_link}]')
@@ -45,7 +52,10 @@ class MessageSetup:
                                            title: str,
                                            location: str,
                                            body: str,
-                                           attendees: list, ):
+
+                                           # attendees: list,
+
+                                           ):
         date_start = f'{start_day}T{start_time}:00'
         date_end = f'{start_day}T{end_time}:00'
         the_end = end_day.replace('-',
@@ -62,8 +72,11 @@ class MessageSetup:
                         'dateTime': date_end,
                         'timeZone': 'America/Sao_Paulo'},
                 'recurrence' : [recurrence_rule],
-                'attendees'  : [{
-                        'email': email} for email in attendees], }
+                }
+        """
+        'attendees'  : [{
+                'email': email} for email in attendees],
+        """
         event = self.g_calendar_connection.g_calendar_insert(event)
         htm_link = event.get('htmlLink')
         print_display(f'{line_number()} Recurring Google Calendar event created: [{htm_link}]')
@@ -75,7 +88,10 @@ class MessageSetup:
                                        title: str,
                                        location: str,
                                        body: str,
-                                       attendees: list):
+
+                                       # attendees: list
+
+                                       ):
         ms_outlook_helper = MicrosoftOutlookHelper()
         appointment = ms_outlook_helper.ms_outlook_create()
         start_dt = datetime.strptime(f'{start_day} {start_time}',
@@ -87,10 +103,14 @@ class MessageSetup:
         appointment.Body = body
         appointment.Start = utc_to_outlook_local(start_dt)
         appointment.End = utc_to_outlook_local(end_dt)
+
+        '''
         for email in attendees:
             recipient = appointment.Recipients.Add(email)
             recipient.Type = 1  # Required attendee
         appointment.Recipients.ResolveAll()
+        '''
+
         appointment.Save()
         # appointment.Send()
         print_display(f'{line_number()} Single Outlook calendar event created successfully.')
@@ -103,7 +123,10 @@ class MessageSetup:
                                            title: str,
                                            location: str,
                                            body: str,
-                                           attendees: list):
+
+                                           # attendees: list
+
+                                           ):
         ms_outlook_helper = MicrosoftOutlookHelper()
         appointment = ms_outlook_helper.ms_outlook_create()
         start_dt = datetime.strptime(f'{start_day} {start_time}',
@@ -115,10 +138,14 @@ class MessageSetup:
         appointment.Body = body
         appointment.Start = utc_to_outlook_local(start_dt)
         appointment.End = utc_to_outlook_local(end_dt)
+
+        """
         for email in attendees:
             recipient = appointment.Recipients.Add(email)
             recipient.Type = 1  # 1 = Required
         appointment.Recipients.ResolveAll()
+        """
+
         recurrence = appointment.GetRecurrencePattern()
         recurrence.RecurrenceType = 0  # 0 = Daily
         recurrence.PatternStartDate = datetime.strptime(start_day,
@@ -137,7 +164,9 @@ class MessageSetup:
                             title: str,
                             location: str,
                             body: str,
-                            attendees: list,
+
+                            # attendees: list,
+
                             default='g_calendar'):
         if default == 'g_calendar':
             self.create_g_calendar_single_event(start_time,
@@ -146,7 +175,9 @@ class MessageSetup:
                                                 title,
                                                 location,
                                                 body,
-                                                attendees)
+
+                                                # attendees
+                                                )
         else:
             self.create_ms_outlook_single_event(start_time,
                                                 end_time,
@@ -154,7 +185,10 @@ class MessageSetup:
                                                 title,
                                                 location,
                                                 body,
-                                                attendees)
+
+                                                # attendees
+
+                                                )
 
     def create_daily_recurrence(self,
                                 start_time: str,
@@ -164,7 +198,9 @@ class MessageSetup:
                                 title: str,
                                 location: str,
                                 body: str,
-                                attendees: list,
+
+                                # attendees: list,
+
                                 default='g_calendar'):
         if default == 'g_calendar':
             self.create_g_calendar_daily_recurrence(start_time,
@@ -174,7 +210,10 @@ class MessageSetup:
                                                     title,
                                                     location,
                                                     body,
-                                                    attendees)
+
+                                                    # attendees
+
+                                                    )
         else:
             self.create_ms_outlook_daily_recurrence(start_time,
                                                     end_time,
@@ -183,7 +222,10 @@ class MessageSetup:
                                                     title,
                                                     location,
                                                     body,
-                                                    attendees)
+
+                                                    # attendees
+
+                                                    )
 
     def setup_mockup_appointments(self,
                                   event_title,
@@ -199,8 +241,10 @@ class MessageSetup:
                                          title=f'Evento 1 {event_title} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
-                                         attendees=['user1@me.con',
-                                                    'user2@me.con'],
+
+                                         # attendees=['user1@me.con',
+                                         #            'user2@me.con'],
+
                                          default=side)
             self.create_daily_recurrence(start_time='20:00',
                                          end_time='21:00',
@@ -209,8 +253,10 @@ class MessageSetup:
                                          title=f'Evento 2 {event_title} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
-                                         attendees=['user1@me.con',
-                                                    'user2@me.con'],
+
+                                         # attendees=['user1@me.con',
+                                         #            'user2@me.con'],
+
                                          default=side)
             self.create_single_event(start_time='14:00',
                                      end_time='15:00',
@@ -218,8 +264,10 @@ class MessageSetup:
                                      title=f'Evento 0_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
-                                     attendees=['user1@me.con',
-                                                'user2@me.con'],
+
+                                     # attendees=['user1@me.con',
+                                     #            'user2@me.con'],
+
                                      default=side)
             self.create_single_event(start_time='15:00',
                                      end_time='16:00',
@@ -227,8 +275,10 @@ class MessageSetup:
                                      title=f'Evento 1_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
-                                     attendees=['user1@me.con',
-                                                'user2@me.con'],
+
+                                     # attendees=['user1@me.con',
+                                     #            'user2@me.con'],
+
                                      default=side)
             self.create_single_event(start_time='16:00',
                                      end_time='17:00',
@@ -236,8 +286,10 @@ class MessageSetup:
                                      title=f'Evento 2_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
-                                     attendees=['user1@me.con',
-                                                'user2@me.con'],
+
+                                     # attendees=['user1@me.con',
+                                     #            'user2@me.con'],
+
                                      default=side)
             self.create_single_event(start_time='17:00',
                                      end_time='18:00',
@@ -245,8 +297,10 @@ class MessageSetup:
                                      title=f'Evento 3_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
-                                     attendees=['user1@me.con',
-                                                'user2@me.con'],
+
+                                     # attendees=['user1@me.con',
+                                     #            'user2@me.con'],
+
                                      default=side)
             self.create_single_event(start_time='18:00',
                                      end_time='19:00',
@@ -254,6 +308,8 @@ class MessageSetup:
                                      title=f'Evento 4_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
-                                     attendees=['user1@me.con',
-                                                'user2@me.con'],
+
+                                     # attendees=['user1@me.con',
+                                     #            'user2@me.con'],
+
                                      default=side)
