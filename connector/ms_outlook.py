@@ -130,11 +130,15 @@ class MicrosoftOutlookConnector:
             if body is None:
                 body = ''
             appointment.Body = str(body)
+
+            '''
             organizer = event_body.get('Organizer',
                                        '')
             if organizer is None:
                 organizer = ''
             appointment.Organizer = str(organizer)
+            '''
+
             location = event_body.get('Location',
                                       '')
             if location is None:
@@ -252,11 +256,15 @@ class MicrosoftOutlookConnector:
                 if location is None:
                     location = ''
                 appointment.Location = str(location)
+
+            '''
             if 'Organizer' in event_body:
                 organizer = event_body['Organizer']
                 if organizer is None:
                     organizer = ''
                 appointment.Organizer = str(organizer)
+            '''
+
             if 'StartUTC' in event_body:
                 start_str = event_body['StartUTC']
                 if isinstance(start_str,

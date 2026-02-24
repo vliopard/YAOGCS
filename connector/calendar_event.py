@@ -23,7 +23,8 @@ class CalendarEvent:
         self.shared_location = None
         self.shared_start_date = None
         self.shared_end_date = None
-        self.shared_organizer = None
+
+        # self.shared_organizer = None
 
         # self.shared_attendees = []
 
@@ -60,13 +61,16 @@ class CalendarEvent:
         eq_end_date = self.shared_end_date == other.shared_end_date
         print_display(f'{line_number()} [{self.shared_end_date}]')
         print_display(f'{line_number()} [{other.shared_end_date}]')
+
+        '''     
         eq_organizer = self.shared_organizer == other.shared_organizer
         print_display(f'{line_number()} [{self.shared_organizer}]')
         print_display(f'{line_number()} [{other.shared_organizer}]')
 
-        # eq_attendees = self._normalized_attendees() == other._normalized_attendees()
-        # print_display(f'{line_number()} [{self.shared_attendees}]')
-        # print_display(f'{line_number()} [{other.shared_attendees}]')
+        eq_attendees = self._normalized_attendees() == other._normalized_attendees()
+        print_display(f'{line_number()} [{self.shared_attendees}]')
+        print_display(f'{line_number()} [{other.shared_attendees}]')
+        '''
 
         eq_recurrence = compare_rule(self.shared_recurrence,
                                      other.shared_recurrence)
@@ -81,9 +85,9 @@ class CalendarEvent:
         eq_status = self.shared_status == other.shared_status
         print_display(f'{line_number()} [{self.shared_status}]')
         print_display(f'{line_number()} [{other.shared_status}]')
-        eq_result = eq_subject and eq_description and eq_location and eq_start_date and eq_end_date and eq_organizer and eq_recurrence and eq_reminder and eq_visibility and eq_status
+        eq_result = eq_subject and eq_description and eq_location and eq_start_date and eq_end_date and eq_recurrence and eq_reminder and eq_visibility and eq_status
         print_underline()
-        print_display(f'{line_number()} SUB[{eq_subject}] DES[{eq_description}] LOC[{eq_location}] STD[{eq_start_date}] END[{eq_end_date}] ORG[{eq_organizer}] REC[{eq_recurrence}] REM[{eq_reminder}] VIS[{eq_visibility}] STA[{eq_status}] | [RES[{eq_result}]]')
+        print_display(f'{line_number()} SUB[{eq_subject}] DES[{eq_description}] LOC[{eq_location}] STD[{eq_start_date}] END[{eq_end_date}] REC[{eq_recurrence}] REM[{eq_reminder}] VIS[{eq_visibility}] STA[{eq_status}] | [RES[{eq_result}]]')
         print_overline()
         return eq_result
 
@@ -101,10 +105,9 @@ class CalendarEvent:
                                                                        {}).get('dateTime'))
         self.shared_end_date = convert_to_local(g_calendar_event.get('end',
                                                                      {}).get('dateTime'))
-        self.shared_organizer = g_calendar_event.get('organizer',
-                                                     {}).get('email')
-
         '''
+        self.shared_organizer = g_calendar_event.get('organizer',
+                                                     {}).get('email')        
         self.shared_attendees = []       
         if 'attendees' in g_calendar_event:
             for att in g_calendar_event['attendees']:
@@ -129,8 +132,8 @@ class CalendarEvent:
                                                                                                                                                   'location',
                                                                                                                                                   'start',
                                                                                                                                                   'end',
-                                                                                                                                                  'organizer',
 
+                                                                                                                                                  # 'organizer',
                                                                                                                                                   # 'attendees',
 
                                                                                                                                                   'recurrence',
@@ -151,8 +154,10 @@ class CalendarEvent:
                 'end'        : {
                         'dateTime': self.shared_end_date,
                         'timeZone': local_timezone},
+        '''        
                 'organizer'  : {
                         'email': self.shared_organizer},
+        '''        
                 'reminders'  : {
                         'useDefault': False,
                         'overrides' : [{
@@ -177,9 +182,10 @@ class CalendarEvent:
         self.shared_location = ms_outlook_event.get('Location')
         self.shared_start_date = convert_to_local(ms_outlook_event.get('StartUTC'))
         self.shared_end_date = convert_to_local(ms_outlook_event.get('EndUTC'))
-        self.shared_organizer = ms_outlook_event.get('Organizer')
 
         '''
+        self.shared_organizer = ms_outlook_event.get('Organizer')
+
         self.shared_attendees = []
         if ms_outlook_event.get('RequiredAttendees'):
             for required_attendee_email in ms_outlook_event['RequiredAttendees'].split(';'):
@@ -230,9 +236,11 @@ class CalendarEvent:
                                                                                                                               'Location',
                                                                                                                               'StartUTC',
                                                                                                                               'EndUTC',
-                                                                                                                              'Organizer',
-                                                                                                                              'RequiredAttendees',
-                                                                                                                              'OptionalAttendees',
+
+                                                                                                                              # 'Organizer',
+                                                                                                                              # 'RequiredAttendees',
+                                                                                                                              # 'OptionalAttendees',
+
                                                                                                                               'IsRecurring',
                                                                                                                               'recurrence_type',
                                                                                                                               'recurrence_interval',
@@ -249,7 +257,9 @@ class CalendarEvent:
                 'Location'                  : self.shared_location,
                 'StartUTC'                  : remove_timezone_info(self.shared_start_date),
                 'EndUTC'                    : remove_timezone_info(self.shared_end_date),
-                'Organizer'                 : self.shared_organizer,
+
+                # 'Organizer'                 : self.shared_organizer,
+
                 'ReminderMinutesBeforeStart': self.shared_reminder_minutes,
                 'Sensitivity'               : 0 if self.shared_visibility == 'public' else 2,
                 'BusyStatus'                : 2 if self.shared_status == 'confirmed' else 1,
@@ -284,8 +294,8 @@ class CalendarEvent:
                 'shared_location'        : self.shared_location,
                 'shared_start_date'      : self.shared_start_date,
                 'shared_end_date'        : self.shared_end_date,
-                'shared_organizer'       : self.shared_organizer,
 
+                # 'shared_organizer'       : self.shared_organizer,
                 # 'shared_attendees'       : self.shared_attendees,
 
                 'shared_recurrence'      : self.shared_recurrence,
