@@ -8,10 +8,12 @@ import pywintypes
 import win32com.client
 from tqdm import tqdm
 
-from utils.utils import line_number
 from utils.utils import _release
 from utils.utils import com_object_to_dictionary
+from utils.utils import line_number
 from utils.utils import print_display
+from utils.utils import print_overline
+from utils.utils import print_underline
 
 
 class MicrosoftOutlookHelper:
@@ -41,8 +43,7 @@ class MicrosoftOutlookConnector:
                             entry_id):
         return com_object_to_dictionary(self.ms_outlook_data.ms_outlook_get_item(entry_id))
 
-    def get_ms_outlook_events(self,
-                              pause_token=None):
+    def get_ms_outlook_events(self):
         time_now = datetime.now()
         time_begin = time_now - timedelta(days=18)
         time_end = time_now + timedelta(days=180)
@@ -58,8 +59,6 @@ class MicrosoftOutlookConnector:
         for item_index, item in enumerate(tqdm(selected_items,
                                                desc='Processing Outlook items',
                                                total=len(selected_items))):
-            if pause_token is not None:
-                pause_token.check()
             local_event_data = dict()
             try:
                 item_properties = [item_attributes for item_attributes in dir(item) if not item_attributes.startswith('_')]
@@ -158,13 +157,13 @@ class MicrosoftOutlookConnector:
                 if isinstance(end_str,
                               str):
                     if 'T' in end_str:
-                        end_dt = datetime.fromisoformat(end_str.replace('Z',
-                                                                        '+00:00'))
+                        recurrence_end_date = datetime.fromisoformat(end_str.replace('Z',
+                                                                                     '+00:00'))
                     else:
-                        end_dt = datetime.fromisoformat(end_str)
+                        recurrence_end_date = datetime.fromisoformat(end_str)
                 else:
-                    end_dt = end_str
-                appointment.End = end_dt
+                    recurrence_end_date = end_str
+                appointment.End = recurrence_end_date
             reminder_minutes = event_body.get('ReminderMinutesBeforeStart',
                                               15)
             if reminder_minutes is not None:
@@ -205,18 +204,25 @@ class MicrosoftOutlookConnector:
                 recurrence.PatternStartDate = appointment.Start
                 recurrence_end = event_body.get('recurrence_end')
                 if recurrence_end:
-                    end_dt = datetime.strptime(recurrence_end,
-                                               '%Y-%m-%d')
-                    end_dt = end_dt.replace(hour=appointment.Start.hour,
-                                            minute=appointment.Start.minute,
-                                            second=appointment.Start.second)
-                    recurrence.PatternEndDate = end_dt
+                    recurrence_end_date = datetime.strptime(recurrence_end,
+                                                            '%Y-%m-%d')
+                    recurrence_end_date = recurrence_end_date.replace(hour=appointment.Start.hour,
+                                                                      minute=appointment.Start.minute,
+                                                                      second=appointment.Start.second)
+                    print_display(f'{line_number()} Setting recurrence end date: [{recurrence_end_date}] [{appointment.Subject}]')
+                    try:
+                        recurrence.PatternEndDate = recurrence_end_date
+                        print_display(f'{line_number()} Recurrence end date set successfully: [{recurrence.PatternEndDate}]')
+                    except OSError as os_error:
+                        print_underline()
+                        print_display(f'{line_number()} OSError when setting recurrence end date: [{os_error}]')
+                        print_overline()
             appointment.Save()
-            print_display(f'{line_number()} MS OUTLOOK INSERT SUCCESS: Event [{appointment.Subject}] created with ID: [{appointment.EntryID[-10:]}]')
+            print_display(f'{line_number()} [Microsoft Outlook] INSERT SUCCESS: Event [{appointment.Subject}] created with ID: [{appointment.EntryID[-10:]}]')
             sleep(1)
             return appointment
         except Exception as exception:
-            print_display(f'{line_number()} MS OUTLOOK INSERT ERROR: {exception}')
+            print_display(f'{line_number()} [Microsoft Outlook] INSERT ERROR: [{exception}]')
             import traceback
             traceback.print_exc()
             return None
@@ -306,10 +312,10 @@ class MicrosoftOutlookConnector:
                 if appointment.Recipients.Count > 0:
                     appointment.Recipients.ResolveAll()
             appointment.Save()
-            print_display(f'{line_number()} MS OUTLOOK UPDATE SUCCESS: Event [{appointment.Subject}] updated')
+            print_display(f'{line_number()} [Microsoft Outlook] UPDATE SUCCESS: Event [{appointment.Subject}] updated')
             return appointment
         except Exception as exception:
-            print_display(f'{line_number()} MS OUTLOOK UPDATE ERROR: {exception}')
+            print_display(f'{line_number()} [Microsoft Outlook] UPDATE ERROR: {exception}')
             import traceback
             traceback.print_exc()
             return None
@@ -321,10 +327,10 @@ class MicrosoftOutlookConnector:
             ms_outlook_event = self.ms_outlook_data.ms_outlook_get_item(entry_id)
             ms_outlook_event_subject = ms_outlook_event.Subject
             ms_outlook_event.Delete()
-            print_display(f'{line_number()} MS OUTLOOK DELETE SUCCESS: Event [{ms_outlook_event_subject}] deleted')
+            print_display(f'{line_number()} [Microsoft Outlook] DELETE SUCCESS: Event [{ms_outlook_event_subject}] deleted')
             return True
         except Exception as exception:
-            print_display(f'{line_number()} MS OUTLOOK DELETE ERROR: [{exception}]')
+            print_display(f'{line_number()} [Microsoft Outlook] DELETE ERROR: [{exception}]')
             return False
 
     def ms_outlook_get_instance(self,
@@ -376,7 +382,8 @@ class MicrosoftOutlookConnector:
             try:
                 print_display(f'{line_number()} Checking item [{item.Subject}] (IsRecurring: [{item.IsRecurring}])')
                 prop = item.UserProperties.Find('GCalendarMasterID')
-                print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{prop.Value if prop else "Not Set"}]')
+                v_prop = prop.Value if prop else 'NOT SET'
+                print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{v_prop[-10:]}]')
                 print_display(f'{line_number()} GCalendarMasterID for item [{item.Subject}]: [{g_calendar_master_id[-10:]}]')
                 if prop and prop.Value == g_calendar_master_id:
                     print_display(f'{line_number()} Found master [{item.Subject}] for GCalendarMasterID [{g_calendar_master_id[-10:]}]')
@@ -398,14 +405,14 @@ class MicrosoftOutlookConnector:
             raise ValueError(f'Invalid start_utc format: [{value_error}]')
         master = self.get_master_by_g_calendar_id(g_calendar_master_id)
         if not master:
-            print_display(f'{line_number()} MASTER ID not found: [{g_calendar_master_id}]')
+            print_display(f'{line_number()} MASTER ID not found: [{g_calendar_master_id[-10:]}]')
             return None
         if not master.IsRecurring:
             print_display(f'{line_number()} Item is not recurring')
             raise ValueError('Item is not recurring')
         offset = master.StartUTC.replace(tzinfo=None) - master.Start.replace(tzinfo=None)
         local_dt = utc_dt - offset
-        print_display(f'{line_number()} master [{local_dt}]  {com_object_to_dictionary(master)}')
+        print_display(f'{line_number()} master [{local_dt}] [{master.Subject}]')
         recurrence = master.GetRecurrencePattern()
         print_display(f'{line_number()} recurrence [{recurrence}]')
         try:
@@ -433,7 +440,7 @@ class MicrosoftOutlookConnector:
             raise ValueError('Item is not recurring')
         offset = master.StartUTC.replace(tzinfo=None) - master.Start.replace(tzinfo=None)
         local_dt = utc_dt - offset
-        print_display(f'{line_number()} master [{local_dt}]  {com_object_to_dictionary(master)}')
+        print_display(f'{line_number()} master [{local_dt}] [{master.Subject}]')
         recurrence = master.GetRecurrencePattern()
         print_display(f'{line_number()} recurrence {recurrence}')
         try:
@@ -477,23 +484,26 @@ class MicrosoftOutlookConnector:
             occurrence.Delete()
             return True
         except Exception as exception:
-            print_display(f'{line_number()} MS OUTLOOK DELETE INSIDE RECURRENCE ERROR: {exception}')
+            print_display(f'{line_number()} [Microsoft Outlook] DELETE INSIDE RECURRENCE ERROR: {exception}')
             return False
 
     def set_recurrence_id(self,
                           ms_outlook_master_id,
                           g_calendar_master_id):
         try:
-            print_display(f'{line_number()} Setting GCalendarMasterID [{g_calendar_master_id[-10:]}] for Outlook master [{ms_outlook_master_id[-10:]}]')
+            print_display(f'{line_number()} 01) Setting GCalendarMasterID [{g_calendar_master_id[-10:]}] for [Microsoft Outlook] master [{ms_outlook_master_id[-10:]}]')
             appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_master_id)
+            print_display(f'{line_number()} 02) Appointment retrieved for master ID [{ms_outlook_master_id[-10:]}]: [{appointment.Subject}]')
             if appointment:
+                print_display(f'{line_number()} 03) Setting GCalendarMasterID for appointment [{appointment.Subject}]')
                 appointment.UserProperties.Add('GCalendarMasterID',
                                                1)
+                print_display(f'{line_number()} 04) GCalendarMasterID property added for appointment [{appointment.Subject}]')
                 appointment.UserProperties['GCalendarMasterID'].Value = g_calendar_master_id
-                print_display(f'{line_number()} GCalendarMasterID set successfully for Outlook master [{ms_outlook_master_id[-10:]}]')
+                print_display(f'{line_number()} 05) GCalendarMasterID set successfully for [Microsoft Outlook] master [{ms_outlook_master_id[-10:]}]')
                 appointment.Save()
         except Exception as exception:
-            print_display(f'{line_number()} Error setting GCalendarMasterID [{ms_outlook_master_id[-10:]}][{g_calendar_master_id[-10:]}] for Outlook item: {exception}')
+            print_display(f'{line_number()} 06) Error setting GCalendarMasterID [{ms_outlook_master_id[-10:]}][{g_calendar_master_id[-10:]}] for [Microsoft Outlook] item: [{exception}]')
 
     def get_recurrence_instances(self,
                                  master_id):

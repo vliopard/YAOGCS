@@ -1,6 +1,6 @@
 import os
-import ssl
 import socket
+import ssl
 import time
 from functools import wraps
 from pathlib import Path
@@ -12,33 +12,38 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from utils.handling_time import time_now
 from utils.handling_time import time_max
+from utils.handling_time import time_min
 from utils.utils import line_number
 from utils.utils import object_serializer
 from utils.utils import print_display
 
-_RETRYABLE_EXCEPTIONS = (
-    ssl.SSLError,
-    ssl.SSLEOFError,
-    ConnectionResetError,
-    ConnectionAbortedError,
-    socket.timeout,
-    TimeoutError,
-    OSError,
-)
-_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+_RETRYABLE_EXCEPTIONS = (ssl.SSLError,
+                         ssl.SSLEOFError,
+                         ConnectionResetError,
+                         ConnectionAbortedError,
+                         socket.timeout,
+                         TimeoutError,
+                         OSError)
+_RETRY_STATUS_CODES = {429,
+                       500,
+                       502,
+                       503,
+                       504}
 _MAX_RETRIES = 4
 _RETRY_BASE_DELAY = 2.0
 
 
 def _google_api_retry(func):
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args,
+                **kwargs):
         delay = _RETRY_BASE_DELAY
-        for attempt in range(1, _MAX_RETRIES + 1):
+        for attempt in range(1,
+                             _MAX_RETRIES + 1):
             try:
-                return func(*args, **kwargs)
+                return func(*args,
+                            **kwargs)
             except HttpError as http_error:
                 if http_error.status_code in _RETRY_STATUS_CODES and attempt < _MAX_RETRIES:
                     print_display(f'{line_number()} Google API HTTP {http_error.status_code} on attempt {attempt}/{_MAX_RETRIES}, retrying in {delay:.0f}s...')
@@ -54,6 +59,7 @@ def _google_api_retry(func):
                 else:
                     print_display(f'{line_number()} All {_MAX_RETRIES} retries exhausted: [{net_error}]')
                     raise
+
     return wrapper
 
 
@@ -99,7 +105,7 @@ class GoogleCalendarHelper:
     @_google_api_retry
     def get_g_calendar_events_list(self):
         return self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
-                                                     timeMin=time_now(),
+                                                     timeMin=time_min(),
                                                      timeMax=time_max(),
                                                      maxResults=2500,
                                                      singleEvents=False).execute()
@@ -109,7 +115,7 @@ class GoogleCalendarHelper:
                                         g_calendar_event_id):
         return self.g_calendar_service.events().instances(calendarId=self.g_calendar_id,
                                                           eventId=g_calendar_event_id,
-                                                          timeMin=time_now(),
+                                                          timeMin=time_min(),
                                                           timeMax=time_max(),
                                                           showDeleted=True).execute()
 
@@ -134,7 +140,7 @@ class GoogleCalendarHelper:
             return self.g_calendar_service.events().delete(calendarId=self.g_calendar_id,
                                                            eventId=g_calendar_instance).execute()
         except HttpError as http_error:
-            print_display(f'{line_number()} DELETE ERROR: [{http_error}]')
+            print_display(f'{line_number()} [Google Calendar] DELETE ERROR: [{http_error.status_code}]')
             return 'Failed'
 
     @_google_api_retry
@@ -184,7 +190,7 @@ class GoogleCalendarConnector:
         self.g_calendar_event_end_dates = local_g_calendar_event_end_dates
         return self.g_calendar_events
 
-    def g_calendar_instance(self,
+    def get_g_calendar_item(self,
                             instance_id):
         return self.g_calendar_service.get_g_calendar_event_instance(instance_id)
 
@@ -196,25 +202,25 @@ class GoogleCalendarConnector:
                           event_body):
         insert_result = None
         try:
-            print_display(f'{line_number()} INSERT <<==')
+            print_display(f'{line_number()} [Google Calendar] INSERT <<==')
             insert_result = self.g_calendar_service.insert_g_calendar_event(object_serializer(event_body))
         except HttpError as http_error:
             if http_error.status_code == 409:
                 cuid = event_body['iCalUID'][-20:]
                 smm = event_body['summary']
-                print_display(f'{line_number()} G CALENDAR INSERT RESULT ERROR: [The requested identifier <{cuid}> <{smm}> already exists.]')
+                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [The requested identifier <{cuid}> <{smm}> already exists.]')
             else:
-                print_display(f'{line_number()} G CALENDAR INSERT RESULT ERROR: [{http_error}]')
+                print_display(f'{line_number()}  [Google Calendar] INSERT RESULT ERROR: [{http_error}]')
         return insert_result
 
     def g_calendar_update(self,
                           google_id,
                           event_body):
-        print_display(f'{line_number()} UPDATE <<==')
+        print_display(f'{line_number()} [Google Calendar] UPDATE <<==')
         return self.g_calendar_service.update_g_calendar_event(google_id,
                                                                object_serializer(event_body))
 
-    def g_calendar_delete(self,
-                          instance):
-        print_display(f'{line_number()} DELETE [{instance}]')
+    def g_calendar_delete_event(self,
+                                instance):
+        print_display(f'{line_number()} [Google Calendar] DELETE [{instance[-10:]}]')
         return self.g_calendar_service.delete_g_calendar_event(instance)

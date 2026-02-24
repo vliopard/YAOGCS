@@ -1,6 +1,8 @@
 import gc
+import logging
 import inspect
 import os
+import re
 import threading
 import time
 from datetime import datetime
@@ -19,18 +21,14 @@ _gui_log_queue = None
 
 
 class PauseToken:
-    """Cooperative pause token passed into sync routines.
-    Each loop calls check() between iterations - blocks if paused, returns
-    instantly if running. Raise PauseToken.Interrupted to abort early."""
-
     class Interrupted(Exception):
         pass
 
-    def __init__(self, event: threading.Event):
+    def __init__(self,
+                 event: threading.Event):
         self._event = event
 
     def check(self):
-        """Block while paused. If still paused after waking, raise Interrupted."""
         if not self._event.is_set():
             self._event.wait()
             if not self._event.is_set():
@@ -41,9 +39,9 @@ class PauseToken:
         return not self._event.is_set()
 
 
-def set_log_queue(q):
+def set_log_queue(queue):
     global _gui_log_queue
-    _gui_log_queue = q
+    _gui_log_queue = queue
 
 
 def print_debug(*arguments):
@@ -79,8 +77,19 @@ def print_display(*arguments):
         return
 
     if constants.RUN_GUI:
-        if _gui_log_queue is not None:
-            _gui_log_queue.put(display_text)
+
+        # if _gui_log_queue is not None:
+        #     _gui_log_queue.put(display_text)
+
+        display_text = " ".join(map(str,
+                                    arguments)).rstrip()
+
+        # Get the logger instance used by the main app
+        logger = logging.getLogger('CalendarSync Logger')
+
+        # Send the display text to the logger (which handles the UI update)
+        logger.info(display_text)
+
     else:
         print(display_text)
 
@@ -98,10 +107,10 @@ def timed(func):
         time_report = [f'Start time: {start_time}',
                        f'End time:   {end_time}',
                        f'Function {func.__name__} ran in {timedelta(seconds=(time_end - time_start))}']
-        print(f'{section_line(constants.SYMBOL_EQ, get_terminal_width() - 35)}')
+        print(f'{section_line(constants.SYMBOL_EQ, constants.LINE_LEN)}')
         for time_detail in time_report:
             print(time_detail)
-        print(f'{section_line(constants.SYMBOL_EQ, get_terminal_width() - 35)}')
+        print(f'{section_line(constants.SYMBOL_EQ, constants.LINE_LEN)}')
         return result
 
     return wrapper
@@ -268,3 +277,9 @@ def is_windows():
 
 def clear_screen():
     os.system('cls' if get_platform() == constants.OS_WINDOWS else 'clear')
+
+
+def get_master_id(text: str) -> str:
+    return re.sub(r'_\d{8}T\d{6}Z$',
+                  '',
+                  text)

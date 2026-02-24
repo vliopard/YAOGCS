@@ -1,5 +1,5 @@
 from connector.event_mapping import EventMapping
-from system.message_setup import MessageSetup
+from run.message_setup import MessageSetup
 
 if __name__ == '__main__':
     event_title = 'OUTLOOK=15=G_CAL'

@@ -81,18 +81,24 @@ def convert_to_str(date_time_value):
     return date_time_value
 
 
-def time_now():
+def time_when(shift):
     utc_time_now = datetime.now(timezone.utc)
-    utc_time_begin = utc_time_now - timedelta(days=18)
+    if shift < 0:
+        utc_time_begin = utc_time_now - timedelta(days=abs(shift))
+    elif shift > 0:
+        utc_time_begin = utc_time_now + timedelta(days=shift)
+    else:
+        utc_time_begin = utc_time_now
     return utc_time_begin.isoformat().replace('+00:00',
                                               'Z')
 
 
+def time_min():
+    return time_when(-18)
+
+
 def time_max():
-    utc_time_now = datetime.now(timezone.utc)
-    utc_time_end = utc_time_now + timedelta(days=180)
-    return utc_time_end.isoformat().replace('+00:00',
-                                            'Z')
+    return time_when(180)
 
 
 def _add_months(date_time,
