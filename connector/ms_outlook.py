@@ -46,8 +46,8 @@ class MicrosoftOutlookConnector:
 
     def get_ms_outlook_events(self):
         time_now = datetime.now()
-        time_begin = time_now - timedelta(days=constants.DAYS_PAST)
-        time_end = time_now + timedelta(days=constants.DAYS_NEXT)
+        time_begin = time_now - timedelta(days=constants.DAY_PAST)
+        time_end = time_now + timedelta(days=constants.DAY_NEXT)
         items = self.ms_outlook_data.ms_outlook_items()
         items.IncludeRecurrences = False
         items.Sort('[Start]')
