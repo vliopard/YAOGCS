@@ -1,5 +1,3 @@
-import utils.screen as screen
-
 GUI = 'GUI'
 CLI = 'CLI'
 DATE_FORMAT = '%H:%M:%S'
@@ -36,8 +34,6 @@ DEBUG_MARKER = 'DEBUG:'
 
 THREAD_NAME = f'{LABEL_MAIN}Thread'
 
-WATCHDOG = 'watchdog'
-
 UTF8 = 'UTF-8'
 
 NEW_LINE = '\n'
@@ -45,11 +41,6 @@ DOS_SLASH = '\\'
 UNIX_SLASH = '/'
 
 NONE = 'none'
-
-NO_COMP = 'no_comp'
-NO_MOVE = 'no_move'
-
-STORE_TRUE = 'store_true'
 
 DOT = '.'
 EMPTY = ''
@@ -75,15 +66,7 @@ PLATFORM_WIN32 = 'win32'
 OS_WIN32 = 'Win32'
 OS_WINDOWS = 'Windows'
 
-PAUSE = 'pause'
-CONTINUE = 'continue'
-TERMINATE = 'terminate'
-RECHECK = 'recheck'
-
 SLASH = 92
-SHA_SIZE = 10
-LINE_LEN = screen.get_terminal_width() - 35
-MAX_SECONDS = 7
 
 STATUS_BAR_FORMAT = '{desc}: {percentage:.2f}%|{bar}| {n:,}/{total:,} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
 

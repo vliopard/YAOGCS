@@ -6,16 +6,16 @@ from dateutil import parser
 
 from connector.g_calendar import GoogleCalendarConnector
 from connector.ms_outlook import MicrosoftOutlookConnector
-from utils.handling_time import convert_to_local
-from utils.handling_time import remove_timezone_info
-from utils.utils import line_number
-from utils.utils import compare_rule
-from utils.utils import print_display
-from utils.utils import print_overline
-from utils.utils import print_underline
+from system.tools import convert_to_local
+from system.tools import remove_timezone_info
+from system.tools import line_number
+from system.tools import compare_rule
+from system.tools import print_display
+from system.tools import print_overline
+from system.tools import print_underline
 
 
-class CalendarEvent:
+class CalendarInstance:
     def __init__(self):
         self.shared_uid = None
         self.shared_subject = None
@@ -38,7 +38,7 @@ class CalendarEvent:
     def __eq__(self,
                other):
         if not isinstance(other,
-                          CalendarEvent):
+                          CalendarInstance):
             return False
         eq_subject = self.shared_subject == other.shared_subject
         print_display(f'{line_number()} [{self.shared_subject}]')
@@ -91,9 +91,11 @@ class CalendarEvent:
         print_overline()
         return eq_result
 
+    '''
     def _normalized_attendees(self):
         return sorted((attendees['email'],
                        attendees['optional']) for attendees in self.shared_attendees)
+    '''
 
     def import_g_calendar(self,
                           g_calendar_event: dict):
@@ -317,18 +319,18 @@ if __name__ == '__main__':
     kind = 'm'
     if kind == 'e':
         g_calendar_connection = GoogleCalendarConnector()
-        g_calendar_events = g_calendar_connection.get_g_calendar_events()
+        g_calendar_events = g_calendar_connection.get_all_sub_instances_g_calendar()
         for event_id, event_data in g_calendar_events.items():
-            calendar_event = CalendarEvent()
+            calendar_event = CalendarInstance()
             calendar_event.import_g_calendar(event_data)
             event_result = calendar_event.export_g_calendar()
             print(event_result)
             break
     if kind == 'm':
         ms_outlook_connection = MicrosoftOutlookConnector()
-        ms_outlook_events = ms_outlook_connection.get_ms_outlook_events()
+        ms_outlook_events = ms_outlook_connection.get_all_instances_ms_outlook()
         for event_id, event_data in ms_outlook_events.items():
-            calendar_event = CalendarEvent()
+            calendar_event = CalendarInstance()
             calendar_event.import_ms_outlook(event_data)
             event_result = calendar_event.export_ms_outlook()
             print(event_result)

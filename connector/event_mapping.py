@@ -6,9 +6,9 @@ from threading import Lock
 from typing import Optional
 from typing import Tuple
 
-from utils.handling_time import utc_now
-from utils.utils import line_number
-from utils.utils import print_display
+from system.tools import utc_now
+from system.tools import line_number
+from system.tools import print_display
 
 
 class EventSide(Enum):
@@ -81,35 +81,38 @@ class EventMapping:
                 os.remove(temp_file)
             raise IOError(f'Failed to save mapping: {exception}')
 
-    def _identify_side(self,
-                       event_id: str,
-                       mapping_dict: dict) -> Optional[EventSide]:
-        if event_id in mapping_dict:
-            return EventSide.MS_OUTLOOK
-        for ms_outlook_id, g_calendar_id in mapping_dict.items():
-            if g_calendar_id == event_id:
-                return EventSide.G_CALENDAR
-        return None
-
-    def reset(self):
+    def clear_map(self):
         with self._lock:
             self.event_map = self._get_default_structure()
             self._save_map()
             print_display(f'{line_number()} Event mapping cleared. Reset to empty state.')
 
-    def add_single_event(self,
-                         ms_outlook_id: str,
-                         g_calendar_id: str) -> bool:
-        with self._lock:
-            single_events = self.event_map['single_events']
-            if ms_outlook_id in single_events:
-                return False
-            single_events[ms_outlook_id] = g_calendar_id
-            self._save_map()
-            return True
+    def _identify_side(self,
+                       instance_id: str,
+                       mapping_dict: dict) -> Optional[EventSide]:
+        if instance_id in mapping_dict:
+            return EventSide.MS_OUTLOOK
+        for ms_outlook_id, g_calendar_id in mapping_dict.items():
+            if g_calendar_id == instance_id:
+                return EventSide.G_CALENDAR
+        return None
 
-    def get_single_event_pair(self,
-                              event_id: str) -> Optional[Tuple[str, Optional[str]]]:
+    def _find_recurrent_master(self,
+                               master_id: str) -> Optional[str]:
+        recurrent_events = self.event_map['recurrent_events']
+        if master_id in recurrent_events:
+            return master_id
+        for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
+            if ms_outlook_data['g_calendar_master_id'] == master_id:
+                return ms_outlook_master_id
+        return None
+
+    def get_all_instances(self) -> dict:
+        with self._lock:
+            return json.loads(json.dumps(self.event_map))
+
+    def get_instance_pair(self,
+                          event_id: str) -> Optional[Tuple[str, Optional[str]]]:
         with self._lock:
             single_events = self.event_map['single_events']
             side = self._identify_side(event_id,
@@ -123,8 +126,55 @@ class EventMapping:
                         return ms_outlook_id, g_calendar_id
             return None
 
-    def remove_single_event(self,
-                            event_id: str) -> bool:
+    def get_recurrent_pair(self,
+                           master_id: str) -> Optional[Tuple[str, Optional[str]]]:
+        with self._lock:
+            ms_outlook_master_id = self._find_recurrent_master(master_id)
+            if not ms_outlook_master_id:
+                return None
+            recurrent_events = self.event_map['recurrent_events']
+            g_calendar_master_id = recurrent_events[ms_outlook_master_id]['g_calendar_master_id']
+            return ms_outlook_master_id, g_calendar_master_id
+
+    def insert_instance(self,
+                        ms_outlook_id: str,
+                        g_calendar_id: str) -> bool:
+        with self._lock:
+            single_events = self.event_map['single_events']
+            if ms_outlook_id in single_events:
+                return False
+            single_events[ms_outlook_id] = g_calendar_id
+            self._save_map()
+            return True
+
+    def insert_recurrence(self,
+                          ms_outlook_master_id: str,
+                          g_calendar_master_id: str) -> bool:
+        with self._lock:
+            recurrent_events = self.event_map['recurrent_events']
+            if ms_outlook_master_id in recurrent_events:
+                return False
+            recurrent_events[ms_outlook_master_id] = {
+                    'g_calendar_master_id': g_calendar_master_id,
+                    'instances'           : {}}
+            self._save_map()
+            return True
+
+    def insert_occurrence(self,
+                          master_id: str,
+                          ms_outlook_instance_id: str,
+                          g_calendar_instance_id: str) -> bool:
+        with self._lock:
+            recurrent_events = self.event_map['recurrent_events']
+            ms_outlook_master_id = self._find_recurrent_master(master_id)
+            if not ms_outlook_master_id:
+                return False
+            recurrent_events[ms_outlook_master_id]['instances'][ms_outlook_instance_id] = g_calendar_instance_id
+            self._save_map()
+            return True
+
+    def remove_instance(self,
+                        event_id: str) -> bool:
         with self._lock:
             single_events = self.event_map['single_events']
             side = self._identify_side(event_id,
@@ -141,100 +191,50 @@ class EventMapping:
                         return True
             return False
 
-    def add_recurrent_master(self,
-                             ms_outlook_master_id: str,
-                             g_calendar_master_id: str) -> bool:
-        with self._lock:
-            recurrent_events = self.event_map['recurrent_events']
-            if ms_outlook_master_id in recurrent_events:
-                return False
-            recurrent_events[ms_outlook_master_id] = {
-                    'g_calendar_master_id': g_calendar_master_id,
-                    'instances'           : {}}
-            self._save_map()
-            return True
-
-    def add_recurrent_instance(self,
-                               master_id: str,
-                               ms_outlook_instance_id: str,
-                               g_calendar_instance_id: str) -> bool:
-        with self._lock:
-            recurrent_events = self.event_map['recurrent_events']
-            ms_outlook_master_id = self._find_recurrent_master(master_id)
-            if not ms_outlook_master_id:
-                return False
-            recurrent_events[ms_outlook_master_id]['instances'][ms_outlook_instance_id] = g_calendar_instance_id
-            self._save_map()
-            return True
-
-    def _find_recurrent_master(self,
-                               master_id: str) -> Optional[str]:
-        recurrent_events = self.event_map['recurrent_events']
-        if master_id in recurrent_events:
-            return master_id
-        for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
-            if ms_outlook_data['g_calendar_master_id'] == master_id:
-                return ms_outlook_master_id
-        return None
-
-    def get_recurrent_master_pair(self,
-                                  master_id: str) -> Optional[Tuple[str, Optional[str]]]:
-        with self._lock:
-            ms_outlook_master_id = self._find_recurrent_master(master_id)
-            if not ms_outlook_master_id:
-                return None
-            recurrent_events = self.event_map['recurrent_events']
-            g_calendar_master_id = recurrent_events[ms_outlook_master_id]['g_calendar_master_id']
-            return ms_outlook_master_id, g_calendar_master_id
-
-    def remove_recurrence(self,
-                          instance_id: str) -> bool:
-        with self._lock:
-            recurrent_events = self.event_map['recurrent_events']
-            for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
-                if ms_outlook_master_id == instance_id:
-                    del recurrent_events[ms_outlook_master_id]
-                    self._save_map()
-                    return True
-            return False
-
-    def g_calendar_remove_recurrence(self,
-                                     instance_id: str) -> bool:
+    def remove_g_calendar_recurrence(self,
+                                     g_calendar_instance_id: str) -> bool:
         with self._lock:
             recurrent_events = self.event_map['recurrent_events']
             r_items = recurrent_events.items()
             for ms_outlook_master_id, ms_outlook_data in r_items:
-                if ms_outlook_data['g_calendar_master_id'] == instance_id:
+                if ms_outlook_data['g_calendar_master_id'] == g_calendar_instance_id:
                     del recurrent_events[ms_outlook_master_id]
                     self._save_map()
                     return True
             return False
 
-    def remove_recurrent_instance(self,
-                                  instance_id: str) -> bool:
+    def remove_ms_outlook_recurrence(self,
+                                     ms_outlook_instance_id: str) -> bool:
+        with self._lock:
+            recurrent_events = self.event_map['recurrent_events']
+            for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
+                if ms_outlook_master_id == ms_outlook_instance_id:
+                    del recurrent_events[ms_outlook_master_id]
+                    self._save_map()
+                    return True
+            return False
+
+    def remove_generic_occurrence(self,
+                                  generic_instance_id: str) -> bool:
         with self._lock:
             recurrent_events = self.event_map['recurrent_events']
             for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
                 ms_outlook_instances = ms_outlook_data['instances']
-                side = self._identify_side(instance_id,
+                side = self._identify_side(generic_instance_id,
                                            ms_outlook_instances)
                 if side == EventSide.MS_OUTLOOK:
-                    if instance_id in ms_outlook_instances:
-                        del ms_outlook_instances[instance_id]
+                    if generic_instance_id in ms_outlook_instances:
+                        del ms_outlook_instances[generic_instance_id]
                         if not ms_outlook_instances:
                             del recurrent_events[ms_outlook_master_id]
                         self._save_map()
                         return True
                 elif side == EventSide.G_CALENDAR:
                     for ms_outlook_instance_id, g_calendar_instance_id in list(ms_outlook_instances.items()):
-                        if g_calendar_instance_id == instance_id:
+                        if g_calendar_instance_id == generic_instance_id:
                             del ms_outlook_instances[ms_outlook_instance_id]
                             if not ms_outlook_instances:
                                 del recurrent_events[ms_outlook_master_id]
                             self._save_map()
                             return True
             return False
-
-    def get_all_mappings(self) -> dict:
-        with self._lock:
-            return json.loads(json.dumps(self.event_map))

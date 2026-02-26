@@ -1,10 +1,11 @@
 from datetime import datetime
 
+from connector.event_mapping import EventMapping
 from connector.g_calendar import GoogleCalendarConnector
 from connector.ms_outlook import MicrosoftOutlookHelper
-from utils.handling_time import utc_to_outlook_local
-from utils.utils import line_number
-from utils.utils import print_display
+from system.tools import line_number
+from system.tools import print_display
+from system.tools import utc_to_outlook_local
 
 
 class MessageSetup:
@@ -33,14 +34,13 @@ class MessageSetup:
                         'timeZone': 'America/Sao_Paulo'},
                 'end'        : {
                         'dateTime': date_end,
-                        'timeZone': 'America/Sao_Paulo'},
-                }
+                        'timeZone': 'America/Sao_Paulo'}, }
         """
         'attendees'  : [{
                 'email': email} for email in attendees],
         """
 
-        event = self.g_calendar_connection.g_calendar_insert(event)
+        event = self.g_calendar_connection.g_calendar_insert_instance(event)
         htm_link = event.get('htmlLink')
         print_display(f'{line_number()} Single Google Calendar event created: [{htm_link}]')
 
@@ -71,13 +71,12 @@ class MessageSetup:
                 'end'        : {
                         'dateTime': date_end,
                         'timeZone': 'America/Sao_Paulo'},
-                'recurrence' : [recurrence_rule],
-                }
+                'recurrence' : [recurrence_rule], }
         """
         'attendees'  : [{
                 'email': email} for email in attendees],
         """
-        event = self.g_calendar_connection.g_calendar_insert(event)
+        event = self.g_calendar_connection.g_calendar_insert_instance(event)
         htm_link = event.get('htmlLink')
         print_display(f'{line_number()} Recurring Google Calendar event created: [{htm_link}]')
 
@@ -93,7 +92,7 @@ class MessageSetup:
 
                                        ):
         ms_outlook_helper = MicrosoftOutlookHelper()
-        appointment = ms_outlook_helper.ms_outlook_create()
+        appointment = ms_outlook_helper.ms_outlook_create_item()
         start_dt = datetime.strptime(f'{start_day} {start_time}',
                                      '%Y-%m-%d %H:%M')
         end_dt = datetime.strptime(f'{start_day} {end_time}',
@@ -128,7 +127,7 @@ class MessageSetup:
 
                                            ):
         ms_outlook_helper = MicrosoftOutlookHelper()
-        appointment = ms_outlook_helper.ms_outlook_create()
+        appointment = ms_outlook_helper.ms_outlook_create_item()
         start_dt = datetime.strptime(f'{start_day} {start_time}',
                                      '%Y-%m-%d %H:%M')
         end_dt = datetime.strptime(f'{start_day} {end_time}',
@@ -313,3 +312,18 @@ class MessageSetup:
                                      #            'user2@me.con'],
 
                                      default=side)
+
+
+if __name__ == '__main__':
+    event_title = 'OUTLOOK=15=G_CAL'
+    calendar_samples = 'ms_outlook'
+    # calendar_samples = 'g_calendar'
+    generate_calendar_samples = False
+    reset_event_mapping_file = True
+    if reset_event_mapping_file:
+        event_mapping = EventMapping()
+        event_mapping.clear_map()
+    message_setup = MessageSetup()
+    message_setup.setup_mockup_appointments(event_title,
+                                            side=calendar_samples,
+                                            enabled=generate_calendar_samples)

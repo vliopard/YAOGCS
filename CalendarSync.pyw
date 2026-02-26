@@ -1,9 +1,11 @@
 # CalendarSync.pyw - Run with pythonw.exe (no console window)
 # Dependencies: pip install pystray pillow
+import ctypes
 import json
 import logging
 import os
 import queue
+import sys
 import threading
 import time
 import tkinter as tk
@@ -17,15 +19,24 @@ from PIL import Image
 from PIL import ImageDraw
 from pystray import MenuItem as Item
 
-import utils.constants as constants
-from connector.event_mapping import EventMapping
-from system.sync_tasks import sync_task
-from system.watchdog import SystemObserver
-from utils.utils import line_number
-from utils.utils import print_display
+import system.constants as constants
+from system.sync_tasks import SyncTask
+from system.tools import print_display
+from system.tools import line_number
+
+_base = os.path.dirname(os.path.abspath(__file__))
+_log_path = os.path.join(_base,
+                         'launch_errors.log')
+_log_file = open(_log_path,
+                 'a',
+                 encoding='utf-8')
+sys.stdout = _log_file
+sys.stderr = _log_file
+
+sys.path.insert(0,
+                _base)
 
 constants.RUN_GUI = True
-first_time = True
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -70,6 +81,43 @@ class ListHandler(logging.Handler):
                 call_back(line)
             except Exception:
                 pass
+
+
+class PauseToken:
+    class Interrupted(Exception):
+        pass
+
+    def __init__(self,
+                 event: threading.Event):
+        self._event = event
+
+    def check(self):
+        if not self._event.is_set():
+            self._event.wait()
+            if not self._event.is_set():
+                raise PauseToken.Interrupted()
+
+    @property
+    def is_paused(self):
+        return not self._event.is_set()
+
+
+class SystemObserver:
+    def __init__(self):
+        self.enabled = True
+        self.continuous = 0x80000000
+        self.system_required = 0x00000001
+        self.display_required = 0x00000002
+
+    def system_observer_state(self):
+        if self.enabled:
+            print_display(f'{line_number()} System observing state...')
+            ctypes.windll.kernel32.SetThreadExecutionState(self.continuous | self.system_required | self.display_required)
+
+    def system_original_state(self):
+        if self.enabled:
+            print_display(f'{line_number()} System continuous system state...')
+            ctypes.windll.kernel32.SetThreadExecutionState(self.continuous)
 
 
 logger = logging.getLogger('CalendarSync Logger')
@@ -127,7 +175,7 @@ _viewer_geom = load_settings()
 # ---------------------------------------------------------------------------
 def interruptible_sleep(seconds: float,
                         interval: float = 0.5):
-    '''Sleep for `seconds`, honoring pause and stop at each interval tick.'''
+    """Sleep for `seconds`, honoring pause and stop at each interval tick."""
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if stop_event.is_set():
@@ -142,7 +190,7 @@ def interruptible_sleep(seconds: float,
 
 
 def check_pause():
-    '''Block if paused; raise StopIteration if stop was requested.'''
+    """Block if paused; raise StopIteration if stop was requested."""
     if stop_event.is_set():
         raise StopIteration('stop requested')
     if not paused.is_set():
@@ -251,7 +299,7 @@ def _icon_manager(tray):
 
 
 def _set_icon_state(state: str):
-    '''Post an icon state command. Safe to call from any thread.'''
+    """Post an icon state command. Safe to call from any thread."""
     icon_queue.put(state)
 
 
@@ -282,8 +330,8 @@ def function_observer():
     logger.info('[Observer] started')
     system_observer = SystemObserver()
     try:
-        system_observer.system_observer_state()
         check_pause()
+        system_observer.system_observer_state()
         interruptible_sleep(3)
     except StopIteration:
         logger.warning('[Observer] interrupted')
@@ -291,16 +339,13 @@ def function_observer():
     logger.info('[Observer] Cycled')
 
 
-def function_sync_job(event_mapping):
-    global first_time
+def function_sync_job():
     logger.info('[Sync Job] started')
     pythoncom.CoInitialize()
     try:
         check_pause()
-        if not first_time:
-            sync_task(event_mapping)
-        else:
-            first_time = False
+        sync_task = SyncTask()
+        sync_task.sync_task()
         interruptible_sleep(4)
     except StopIteration:
         logger.warning('[Sync Job] interrupted')
@@ -318,17 +363,15 @@ def main_loop():
     last_sync_job = 0.0
     running_observer = threading.Event()
     running_sync_job = threading.Event()
-    event_mapping = EventMapping()
 
     def run_observer():
         running_observer.set()
         _job_wrapper(function_observer)
         running_observer.clear()
 
-    def run_sync_job(event_mapping):
+    def run_sync_job():
         running_sync_job.set()
-        _job_wrapper(function_sync_job,
-                     event_mapping)
+        _job_wrapper(function_sync_job)
         running_sync_job.clear()
 
     while not stop_event.is_set():
@@ -359,7 +402,6 @@ def main_loop():
             if not running_sync_job.is_set():
                 logger.info('Scheduling [Sync Job]...')
                 threading.Thread(target=run_sync_job,
-                                 args=(event_mapping,),
                                  daemon=True).start()
                 next_sync = datetime.fromtimestamp(time.time() + INTERVAL_SYNC_JOB).strftime('%Y.%m.%d %p %I:%M:%S')
                 logger.info(f'Next [[SYNC JOB]] scheduled for [{next_sync}]')
@@ -393,22 +435,22 @@ def _create_or_raise_log_viewer():
         except Exception:
             pass
 
-    win = tk.Toplevel(root)
-    win.title('Log Viewer')
-    win.geometry(_viewer_geom if _viewer_geom else '700x400')
-    win.protocol('WM_DELETE_WINDOW',
-                 lambda: _on_log_close(win))
+    log_viewer_window = tk.Toplevel(root)
+    log_viewer_window.title('Log Viewer')
+    log_viewer_window.geometry(_viewer_geom if _viewer_geom else '700x400')
+    log_viewer_window.protocol('WM_DELETE_WINDOW',
+                               lambda: _on_log_close(log_viewer_window))
 
-    win.autoscroll_enabled = tk.BooleanVar(value=True)
+    log_viewer_window.autoscroll_enabled = tk.BooleanVar(value=True)
 
-    ctrl_frame = tk.Frame(win,
+    ctrl_frame = tk.Frame(log_viewer_window,
                           bg='#2d2d2d')
     ctrl_frame.pack(fill=tk.X,
                     side=tk.TOP)
 
     def toggle_scroll():
-        current = win.autoscroll_enabled.get()
-        win.autoscroll_enabled.set(not current)
+        current = log_viewer_window.autoscroll_enabled.get()
+        log_viewer_window.autoscroll_enabled.set(not current)
         btn_text = "Auto-Scroll: ON" if not current else "Auto-Scroll: OFF"
         scroll_btn.config(text=btn_text,
                           fg="#00c850" if not current else "#8888aa")
@@ -440,7 +482,7 @@ def _create_or_raise_log_viewer():
                    padx=5,
                    pady=2)
 
-    txt = scrolledtext.ScrolledText(win,
+    txt = scrolledtext.ScrolledText(log_viewer_window,
                                     state='disabled',
                                     wrap='word',
                                     font=('Consolas',
@@ -458,27 +500,27 @@ def _create_or_raise_log_viewer():
                     log_lines,
                     autoscroll=True)
 
-    def _safe_append(win,
-                     txt,
-                     line):
-        if not win.winfo_exists() or not txt.winfo_exists():
+    def _safe_append(local_window,
+                     local_text,
+                     local_line):
+        if not local_window.winfo_exists() or not local_text.winfo_exists():
             return
-        _append_to_text(txt,
-                        [line],
-                        win.autoscroll_enabled.get())
+        _append_to_text(local_text,
+                        [local_line],
+                        local_window.autoscroll_enabled.get())
 
     def on_new_line(line):
-        if not win.winfo_exists():
+        if not log_viewer_window.winfo_exists():
             return
-        win.after(0,
-                  lambda: _safe_append(win,
-                                       txt,
-                                       line))
+        log_viewer_window.after(0,
+                                lambda: _safe_append(log_viewer_window,
+                                                     txt,
+                                                     line))
 
     log_callbacks.append(on_new_line)
-    win._log_cb = on_new_line
-    win._log_txt = txt
-    _log_win = win
+    log_viewer_window._log_cb = on_new_line
+    log_viewer_window._log_txt = txt
+    _log_win = log_viewer_window
 
 
 def _on_log_close(win):
@@ -544,39 +586,39 @@ def _create_or_raise_about():
         except Exception:
             pass
 
-    BG = '#1a1a2e'
-    CARD = '#16213e'
-    ACCENT = '#0f3460'
-    GREEN = '#00c850'
-    FG_BRIGHT = '#e8e8f0'
-    FG_DIM = '#8888aa'
-    BORDER = '#0f3460'
+    background_color = '#1a1a2e'
+    card_color = '#16213e'
+    accent_color = '#0f3460'
+    green_color = '#00c850'
+    foreground_bright = '#e8e8f0'
+    foreground_dim = '#8888aa'
+    border_color = '#0f3460'
 
-    win = tk.Toplevel(root)
-    win.title(f'About {APP_NAME}')
-    win.resizable(False,
-                  False)
+    about_window = tk.Toplevel(root)
+    about_window.title(f'About {APP_NAME}')
+    about_window.resizable(False,
+                           False)
 
     w, h = 400, 400
-    sw = win.winfo_screenwidth()
-    sh = win.winfo_screenheight()
+    sw = about_window.winfo_screenwidth()
+    sh = about_window.winfo_screenheight()
     x = (sw - w) // 2
     y = (sh - h) // 2
-    win.geometry(f'{w}x{h}+{x}+{y}')
-    win.configure(bg=BG)
-    win.protocol('WM_DELETE_WINDOW',
-                 lambda: _on_about_close(win))
+    about_window.geometry(f'{w}x{h}+{x}+{y}')
+    about_window.configure(bg=background_color)
+    about_window.protocol('WM_DELETE_WINDOW',
+                          lambda: _on_about_close(about_window))
 
     # ── top accent bar ──────────────────────────────────────────────────────
-    accent_bar = tk.Frame(win,
-                          bg=GREEN,
+    accent_bar = tk.Frame(about_window,
+                          bg=green_color,
                           height=4)
     accent_bar.pack(fill=tk.X,
                     side=tk.TOP)
 
     # ── icon + name row ─────────────────────────────────────────────────────
-    header_frame = tk.Frame(win,
-                            bg=BG)
+    header_frame = tk.Frame(about_window,
+                            bg=background_color)
     header_frame.pack(fill=tk.X,
                       padx=28,
                       pady=(22,
@@ -586,7 +628,7 @@ def _create_or_raise_about():
     icon_canvas = tk.Canvas(header_frame,
                             width=42,
                             height=42,
-                            bg=BG,
+                            bg=background_color,
                             highlightthickness=0)
     icon_canvas.pack(side=tk.LEFT,
                      padx=(0,
@@ -595,11 +637,11 @@ def _create_or_raise_about():
                             3,
                             39,
                             39,
-                            fill=GREEN,
+                            fill=green_color,
                             outline='')
 
     name_frame = tk.Frame(header_frame,
-                          bg=BG)
+                          bg=background_color)
     name_frame.pack(side=tk.LEFT,
                     anchor='w')
 
@@ -608,19 +650,19 @@ def _create_or_raise_about():
              font=('Segoe UI',
                    18,
                    'bold'),
-             bg=BG,
-             fg=FG_BRIGHT).pack(anchor='w')
+             bg=background_color,
+             fg=foreground_bright).pack(anchor='w')
 
     tk.Label(name_frame,
              text=f'Version {APP_VERSION}',
              font=('Segoe UI',
                    9),
-             bg=BG,
-             fg=FG_DIM).pack(anchor='w')
+             bg=background_color,
+             fg=foreground_dim).pack(anchor='w')
 
     # ── divider ─────────────────────────────────────────────────────────────
-    div = tk.Frame(win,
-                   bg=BORDER,
+    div = tk.Frame(about_window,
+                   bg=border_color,
                    height=1)
     div.pack(fill=tk.X,
              padx=28,
@@ -628,11 +670,11 @@ def _create_or_raise_about():
                    0))
 
     # ── description card ────────────────────────────────────────────────────
-    card = tk.Frame(win,
-                    bg=CARD,
+    card = tk.Frame(about_window,
+                    bg=card_color,
                     bd=0,
                     highlightthickness=1,
-                    highlightbackground=ACCENT)
+                    highlightbackground=accent_color)
     card.pack(fill=tk.X,
               padx=28,
               pady=(16,
@@ -642,16 +684,16 @@ def _create_or_raise_about():
              text=APP_DESCRIPTION,
              font=('Segoe UI',
                    10),
-             bg=CARD,
-             fg=FG_BRIGHT,
+             bg=card_color,
+             fg=foreground_bright,
              justify=tk.LEFT,
              wraplength=320).pack(anchor='w',
                                   padx=14,
                                   pady=12)
 
     # ── metadata grid ───────────────────────────────────────────────────────
-    meta_frame = tk.Frame(win,
-                          bg=BG)
+    meta_frame = tk.Frame(about_window,
+                          bg=background_color)
     meta_frame.pack(fill=tk.X,
                     padx=28,
                     pady=(16,
@@ -661,23 +703,23 @@ def _create_or_raise_about():
                   label,
                   value):
         row = tk.Frame(parent,
-                       bg=BG)
+                       bg=background_color)
         row.pack(fill=tk.X,
                  pady=2)
         tk.Label(row,
                  text=label,
                  font=('Segoe UI',
                        9),
-                 bg=BG,
-                 fg=FG_DIM,
+                 bg=background_color,
+                 fg=foreground_dim,
                  width=14,
                  anchor='w').pack(side=tk.LEFT)
         tk.Label(row,
                  text=value,
                  font=('Segoe UI',
                        9),
-                 bg=BG,
-                 fg=FG_BRIGHT,
+                 bg=background_color,
+                 fg=foreground_bright,
                  anchor='w').pack(side=tk.LEFT)
 
     _meta_row(meta_frame,
@@ -694,8 +736,8 @@ def _create_or_raise_about():
               f'Every {INTERVAL_SYNC_JOB // 60} min')
 
     # ── close button ────────────────────────────────────────────────────────
-    btn_frame = tk.Frame(win,
-                         bg=BG)
+    btn_frame = tk.Frame(about_window,
+                         bg=background_color)
     btn_frame.pack(pady=(18,
                          0))
 
@@ -703,19 +745,19 @@ def _create_or_raise_about():
                           text='Close',
                           font=('Segoe UI',
                                 9),
-                          bg=ACCENT,
-                          fg=FG_BRIGHT,
-                          activebackground=GREEN,
+                          bg=accent_color,
+                          fg=foreground_bright,
+                          activebackground=green_color,
                           activeforeground='#000000',
                           relief='flat',
                           cursor='hand2',
                           padx=24,
                           pady=6,
                           bd=0,
-                          command=lambda: _on_about_close(win))
+                          command=lambda: _on_about_close(about_window))
     close_btn.pack()
 
-    _about_win = win
+    _about_win = about_window
 
 
 def _on_about_close(win):
