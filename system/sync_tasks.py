@@ -310,7 +310,9 @@ class SyncTask:
 
 if __name__ == '__main__':
     sync_task = SyncTask()
-    sync_task.clear_map()
+
+    # sync_task.clear_map()
+
     sync_task.sync_task()
 
     '''
