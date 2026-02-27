@@ -332,7 +332,7 @@ class MessageSetup:
 
 
 if __name__ == '__main__':
-    event_title = 'OUTLOOK=21=G_CAL'
+    event_title = 'OUTLOOK|31|G_CAL'
     calendar_samples = 'ms_outlook'
     # calendar_samples = 'g_calendar'
     generate_calendar_samples = True

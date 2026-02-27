@@ -17,7 +17,7 @@ class SyncTask:
     def __init__(self):
         self.event_mapping = EventMapping()
         self.ms_outlook_connection = MicrosoftOutlookConnector()
-        self.g_calendar_connection = GoogleCalendarConnector()
+        self.g_calendar_connection = GoogleCalendarConnector(event_mapping=self.event_mapping)
 
     def clear_map(self):
         self.event_mapping.clear_map()
@@ -193,7 +193,7 @@ class SyncTask:
 
     def copy_ms_outlook_recurrent_event_to_g_calendar(self):
         print_display(f'{line_number()} Checking for new recurrent events in [Microsoft Outlook]...')
-        ms_outlook_events = self.ms_outlook_connection.get_all_instances_ms_outlook()
+        ms_outlook_events = self.ms_outlook_connection.get_all_recurrences_ms_outlook()
         for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
@@ -211,17 +211,8 @@ class SyncTask:
                     self.event_mapping.insert_recurrence(ms_outlook_current_id,
                                                          g_calendar_id)
                     ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
-                    print('/' * 150)
-                    for a in ms_outlook_instances:
-                        print(a)
-                    print('+' * 150)
-
                     g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
                                                                                                                                                [])
-
-                    for b in g_calendar_instances:
-                        print(b)
-
                     self.ms_outlook_connection.set_recurrence_id(ms_outlook_current_id,
                                                                  g_calendar_master_id)
                     for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
@@ -233,6 +224,7 @@ class SyncTask:
                         ms_outlook_start = strip_symbols(ms_outlook_instance['StartUTC'])
                         ms_outlook_end = strip_symbols(ms_outlook_instance['EndUTC'])
                         ms_outlook_instance_string = ms_outlook_instance['EntryID']
+                        # TODO: OCCURRENCE IS RECURRENCE?
                         self.event_mapping.insert_occurrence(ms_outlook_current_id,
                                                              f'{ms_outlook_instance_string}{ms_outlook_start}{ms_outlook_end}',
                                                              g_calendar_instance['id'])
@@ -319,7 +311,6 @@ class SyncTask:
 if __name__ == '__main__':
     sync_task = SyncTask()
     sync_task.clear_map()
-
     sync_task.sync_task()
 
     '''

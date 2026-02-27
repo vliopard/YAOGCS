@@ -41,11 +41,12 @@ class MicrosoftOutlookConnector:
         self.ms_outlook_data = MicrosoftOutlookHelper()
 
     def get_restriction(self,
-                        ms_outlook_all_instances):
+                        ms_outlook_all_instances,
+                        include_recurrences=True):
         time_now = datetime.now()
         time_begin = time_now - timedelta(days=constants.DAY_PAST)
         time_end = time_now + timedelta(days=constants.DAY_NEXT)
-        ms_outlook_all_instances.IncludeRecurrences = True
+        ms_outlook_all_instances.IncludeRecurrences = include_recurrences
         ms_outlook_all_instances.Sort('[Start]')
         restriction_string = "([Start] >= '{}' OR [End] >= '{}') AND [End] <= '{}'"
         restriction = restriction_string.format(time_begin.strftime('%m/%d/%Y %H:%M %p'),
@@ -146,6 +147,38 @@ class MicrosoftOutlookConnector:
         gc.collect()
         return ms_outlook_instances
 
+    def get_all_recurrences_ms_outlook(self):
+        ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
+        ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
+                                                             False)
+        ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
+        ms_outlook_instances = dict()
+        for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
+            try:
+                ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
+            except Exception as exception:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — dir() - FAILED: [{exception}]')
+                release_com_object_memory(ms_outlook_instance)
+                continue
+            ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
+                                                                         ms_outlook_properties)
+            if 'EntryID' not in ms_outlook_instance_data:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — missing EntryID')
+                release_com_object_memory(ms_outlook_instance)
+                continue
+            if not ms_outlook_instance_data.get('IsRecurring',
+                                                False):
+                release_com_object_memory(ms_outlook_instance)
+                continue
+            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
+            if ms_outlook_entry_id not in ms_outlook_instances:
+                ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
+            release_com_object_memory(ms_outlook_instance)
+            if ms_outlook_index % 50 == 0:
+                gc.collect()
+        gc.collect()
+        return ms_outlook_instances
+
     def get_master_by_g_calendar_id(self,
                                     g_calendar_master_id: str):
         ms_outlook_helper = MicrosoftOutlookHelper()
@@ -222,7 +255,6 @@ class MicrosoftOutlookConnector:
 
     def get_recurrence_instances(self,
                                  ms_outlook_instance_id):
-        # TODO: 18 TO 180
         ms_outlook_recurrence = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
         if not ms_outlook_recurrence.IsRecurring:
             raise ValueError('[Microsoft Outlook] Provided ID is not a recurring appointment')
@@ -230,14 +262,21 @@ class MicrosoftOutlookConnector:
         ms_outlook_recurrence_list = list()
         ms_outlook_recurrence_start = ms_outlook_recurrence.Start
         ms_outlook_recurrence_end = ms_outlook_recurrence.End
+        ms_outlook_recurrence_duration = ms_outlook_recurrence_end - ms_outlook_recurrence_start
+        time_now = datetime.now()
+        window_begin = (time_now - timedelta(days=constants.DAY_PAST)).date()
+        window_end = (time_now + timedelta(days=constants.DAY_NEXT)).date()
         ms_outlook_recurrence_current = ms_outlook_recurrence_start
         while ms_outlook_recurrence_current.date() <= ms_outlook_recurrence_pattern.PatternEndDate.date():
-            try:
-                ms_outlook_recurrence_item = ms_outlook_recurrence_pattern.GetOccurrence(ms_outlook_recurrence_current)
-                ms_outlook_recurrence_list.append(convert_com_object_to_dictionary(ms_outlook_recurrence_item))
-            except pywintypes.com_error:
-                pass
-            ms_outlook_recurrence_current = ms_outlook_recurrence_current + (ms_outlook_recurrence_end - ms_outlook_recurrence_start)
+            if ms_outlook_recurrence_current.date() > window_end:
+                break
+            if ms_outlook_recurrence_current.date() >= window_begin:
+                try:
+                    ms_outlook_recurrence_item = ms_outlook_recurrence_pattern.GetOccurrence(ms_outlook_recurrence_current)
+                    ms_outlook_recurrence_list.append(convert_com_object_to_dictionary(ms_outlook_recurrence_item))
+                except pywintypes.com_error:
+                    pass
+            ms_outlook_recurrence_current = ms_outlook_recurrence_current + ms_outlook_recurrence_duration
         release_com_object_memory(ms_outlook_recurrence_pattern)
         release_com_object_memory(ms_outlook_recurrence)
         gc.collect()

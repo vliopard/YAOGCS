@@ -2,6 +2,7 @@ import os
 import socket
 import ssl
 import time
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -13,14 +14,13 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from connector.event_mapping import EventMapping
-from system.tools import print_debug
+from system.tools import convert_object_to_string
+from system.tools import get_master_id
+from system.tools import line_number
+from system.tools import print_box
+from system.tools import print_display
 from system.tools import time_max
 from system.tools import time_min
-from system.tools import line_number
-from system.tools import convert_object_to_string
-from system.tools import print_display
-from system.tools import print_overline
-from system.tools import print_underline
 from system.tools import trim_id
 
 _RETRYABLE_EXCEPTIONS = (ssl.SSLError,
@@ -114,6 +114,7 @@ class GoogleCalendarHelper:
                                                      timeMax=time_max(),
                                                      maxResults=2500,
                                                      singleEvents=False).execute()
+
     @_google_api_retry
     def g_calendar_get_all_sub_instances(self):
         return self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
@@ -136,6 +137,43 @@ class GoogleCalendarHelper:
                                                           timeMin=time_min(),
                                                           timeMax=time_max(),
                                                           showDeleted=False).execute()
+
+    @_google_api_retry
+    def g_calendar_get_instance_by_ical_uid(self,
+                                            g_calendar_ical_uid):
+        result = self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
+                                                       iCalUID=g_calendar_ical_uid,
+                                                       maxResults=1,
+                                                       singleEvents=False).execute()
+        items = result.get('items',
+                           [])
+        return items[0] if items else None
+
+    @_google_api_retry
+    def g_calendar_get_instance_by_summary_and_start(self,
+                                                     g_calendar_summary,
+                                                     g_calendar_start_date):
+        if not isinstance(g_calendar_start_date,
+                          datetime):
+            g_calendar_start_date = datetime(g_calendar_start_date.year,
+                                             g_calendar_start_date.month,
+                                             g_calendar_start_date.day,
+                                             g_calendar_start_date.hour,
+                                             g_calendar_start_date.minute,
+                                             g_calendar_start_date.second)
+        time_min = g_calendar_start_date.strftime('%Y-%m-%dT00:00:00Z')
+        time_max = g_calendar_start_date.strftime('%Y-%m-%dT23:59:59Z')
+        result = self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
+                                                       timeMin=time_min,
+                                                       timeMax=time_max,
+                                                       maxResults=2500,
+                                                       singleEvents=True).execute()
+        for item in result.get('items',
+                               []):
+            if item.get('summary',
+                        '').strip().lower() == g_calendar_summary.strip().lower():
+                return item
+        return None
 
     @_google_api_retry
     def insert_instance_g_calendar(self,
@@ -172,8 +210,9 @@ class GoogleCalendarHelper:
 
 
 class GoogleCalendarConnector:
-    def __init__(self):
-        self.event_mapping = EventMapping()
+    def __init__(self,
+                 event_mapping: EventMapping = None):
+        self.event_mapping = event_mapping if event_mapping else EventMapping()
         self.g_calendar_service = GoogleCalendarHelper()
         self.g_calendar_events = None
         self.g_calendar_event_end_dates = None
@@ -194,7 +233,7 @@ class GoogleCalendarConnector:
                         g_calendar_instance_end_dates[g_calendar_instance_id] = g_calendar_rule_match
                 g_calendar_instance_list = self.g_calendar_service.g_calendar_get_all_single_instances_inside_recurrence(g_calendar_instance_id)
                 for g_calendar_instance_list_item in g_calendar_instance_list.get('items',
-                                                                                []):
+                                                                                  []):
                     g_calendar_all_events[g_calendar_instance_list_item['id']] = g_calendar_instance_list_item
         self.g_calendar_events = g_calendar_all_events
         self.g_calendar_event_end_dates = g_calendar_instance_end_dates
@@ -207,9 +246,7 @@ class GoogleCalendarConnector:
         g_calendar_all_events = dict()
         g_calendar_instance_end_dates = dict()
         for g_calendar_single_item in g_calendar_all_instances_items:
-            print_underline()
-            print_display(f'{line_number()} [{g_calendar_single_item}]')
-            print_overline()
+            print_box(f'{line_number()} [{g_calendar_single_item}]')
             g_calendar_instance_id = g_calendar_single_item['id']
             g_calendar_all_events[g_calendar_instance_id] = g_calendar_single_item
         self.g_calendar_events = g_calendar_all_events
@@ -226,26 +263,54 @@ class GoogleCalendarConnector:
 
     def g_calendar_insert_instance(self,
                                    g_calendar_instance_body):
+        def check_item(current_item,
+                       event_mapping: EventMapping):
+            if current_item:
+                pair1 = event_mapping.get_recurrent_pair(get_master_id(current_item))
+                print_display(f'{line_number()} [Google Calendar] 04) LOOKING [{trim_id(current_item)}] = [{trim_id(pair1[1])}]')
+                if pair1:
+                    return 1
+                pair2 = event_mapping.get_instance_pair(get_master_id(current_item))
+                print_display(f'{line_number()} [Google Calendar] 05) LOOKING [{trim_id(current_item)}] = [{trim_id(pair2[1])}]')
+                if pair2:
+                    return 2
+            print_display(f'{line_number()} [Google Calendar] NOT FOUND')
+            return 0
+
         insert_result = None
         try:
             print_display(f'{line_number()} [Google Calendar] INSERT <<==')
             insert_result = self.g_calendar_service.insert_instance_g_calendar(convert_object_to_string(g_calendar_instance_body))
         except HttpError as http_error:
             if http_error.status_code == 409:
-                g_calendar_uid = g_calendar_instance_body['iCalUID'][-20:]
+                g_calendar_instance_id = g_calendar_instance_body['iCalUID']
+                g_calendar_instance_id_trim = trim_id(g_calendar_instance_id)
                 g_calendar_summary = g_calendar_instance_body['summary']
-                print_display(f'{line_number()} [Google Calendar] INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_uid}] [{g_calendar_summary}] already/exists.]')
-                pair = self.event_mapping.get_recurrent_pair(g_calendar_uid)
-                if not pair:
-                    print_debug(f'{line_number()} [Google Calendar] NOT RECURRENT, LOOKING INSTANCE')
-                    pair = self.event_mapping.get_instance_pair(g_calendar_uid)
-                if pair:
-                    print_debug(f'{line_number()} [Google Calendar] Found existing mapping for UID [{g_calendar_uid}]: {pair}')
+                print_display(f'{line_number()} [Google Calendar] INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_instance_id_trim}] [{g_calendar_summary}] already/exists.]')
+                g_calendar_summary = g_calendar_instance_body['summary']
+                g_calendar_date = g_calendar_instance_body['start']['dateTime']
+
+                item0 = self.get_instance_by_summary_and_start_g_calendar(g_calendar_summary,
+                                                                          g_calendar_date)['id']
+                print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: [{g_calendar_summary}|{type(g_calendar_summary)}][{g_calendar_date}|{type(g_calendar_date)}] = [{trim_id(item0)}]')
+                if check_item(item0,
+                              self.event_mapping) == 1:
+                    print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: FOUND')
                 else:
-                    print_debug(f'{line_number()} [Google Calendar] NOT Found existing mapping for UID [{g_calendar_uid}]: {pair}')
+                    item1 = self.get_instance_by_ical_uid_g_calendar(g_calendar_instance_id)['id']
+                    print_display(f'{line_number()} [Google Calendar] 02) LOOKING iCalUID: [{trim_id(g_calendar_instance_id)}] = [{trim_id(item1)}]')
+                    if check_item(item1,
+                                  self.event_mapping) == 2:
+                        print_display(f'{line_number()} [Google Calendar] 02) LOOKING iCalUID: FOUND')
+                    else:
+                        print_display(f'{line_number()} [Google Calendar] 01) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
             else:
-                print_display(f'{line_number()} [Google Calendar] INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
+                print_display(f'{line_number()} [Google Calendar] 02) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
         return insert_result
+
+    def get_instance_by_ical_uid_g_calendar(self,
+                                            g_calendar_ical_uid):
+        return self.g_calendar_service.g_calendar_get_instance_by_ical_uid(g_calendar_ical_uid)
 
     def g_calendar_update_instance(self,
                                    g_calendar_instance_id,
@@ -258,3 +323,9 @@ class GoogleCalendarConnector:
                                    g_calendar_instance_id):
         print_display(f'{line_number()} [Google Calendar] DELETE [{trim_id(g_calendar_instance_id)}]')
         return self.g_calendar_service.delete_instance_g_calendar(g_calendar_instance_id)
+
+    def get_instance_by_summary_and_start_g_calendar(self,
+                                                     g_calendar_summary,
+                                                     g_calendar_start_date):
+        return self.g_calendar_service.g_calendar_get_instance_by_summary_and_start(g_calendar_summary,
+                                                                                    g_calendar_start_date)
