@@ -68,12 +68,13 @@ def measure_time(measured_function):
 
 
 def trim_id(identification):
-    return identification[-10:]
+    if len(identification) > 30:
+        return f'{identification[8:18]}|{identification[-20:-9]}'
+    return identification
 
 
 def release_com_object_memory(com_object_for_deletion):
     try:
-        print_debug(com_object_for_deletion)
         del com_object_for_deletion
     except ValueError as value_error:
         print_display(f'{line_number()} ValueError during COM release: [{value_error}]')
@@ -363,6 +364,14 @@ def print_display(*arguments):
         logger.info(display_text)
     else:
         print(display_text)
+
+
+def strip_symbols(message_with_symbols):
+    return str(message_with_symbols).replace(':',
+                                             '_').replace(' ',
+                                                          '_').replace('+',
+                                                                       '_').replace('-',
+                                                                                    '_')
 
 
 def utc_now():

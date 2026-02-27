@@ -21,8 +21,8 @@ from pystray import MenuItem as Item
 
 import system.constants as constants
 from system.sync_tasks import SyncTask
-from system.tools import print_display
 from system.tools import line_number
+from system.tools import print_display
 
 _base = os.path.dirname(os.path.abspath(__file__))
 _log_path = os.path.join(_base,

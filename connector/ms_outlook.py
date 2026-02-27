@@ -8,12 +8,13 @@ import pywintypes
 import win32com.client
 
 import system.constants as constants
-from system.tools import release_com_object_memory
 from system.tools import convert_com_object_to_dictionary
 from system.tools import line_number
 from system.tools import print_display
 from system.tools import print_overline
 from system.tools import print_underline
+from system.tools import release_com_object_memory
+from system.tools import strip_symbols
 from system.tools import trim_id
 
 
@@ -31,13 +32,26 @@ class MicrosoftOutlookHelper:
 
     def ms_outlook_get_item(self,
                             ms_outlook_instance_id):
-        return self.ms_outlook_namespace.GetItemFromID(ms_outlook_instance_id,
+        return self.ms_outlook_namespace.GetItemFromID(ms_outlook_instance_id.split('_')[0],
                                                        self.ms_outlook_calendar.StoreID)
 
 
 class MicrosoftOutlookConnector:
     def __init__(self):
         self.ms_outlook_data = MicrosoftOutlookHelper()
+
+    def get_restriction(self,
+                        ms_outlook_all_instances):
+        time_now = datetime.now()
+        time_begin = time_now - timedelta(days=constants.DAY_PAST)
+        time_end = time_now + timedelta(days=constants.DAY_NEXT)
+        ms_outlook_all_instances.IncludeRecurrences = True
+        ms_outlook_all_instances.Sort('[Start]')
+        restriction_string = "([Start] >= '{}' OR [End] >= '{}') AND [End] <= '{}'"
+        restriction = restriction_string.format(time_begin.strftime('%m/%d/%Y %H:%M %p'),
+                                                time_begin.strftime('%m/%d/%Y %H:%M %p'),
+                                                time_end.strftime('%m/%d/%Y %H:%M %p'))
+        return ms_outlook_all_instances.Restrict(restriction)
 
     def get_item_ms_outlook(self,
                             ms_outlook_instance_id):
@@ -106,17 +120,8 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instance_data
 
     def get_all_instances_ms_outlook(self):
-        time_now = datetime.now()
-        time_begin = time_now - timedelta(days=constants.DAY_PAST)
-        time_end = time_now + timedelta(days=constants.DAY_NEXT)
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
-        ms_outlook_all_instances.IncludeRecurrences = False
-        ms_outlook_all_instances.Sort('[Start]')
-        restriction_string = "([Start] >= '{}' OR [End] >= '{}') AND [End] <= '{}'"
-        restriction = restriction_string.format(time_begin.strftime('%m/%d/%Y %H:%M %p'),
-                                                time_begin.strftime('%m/%d/%Y %H:%M %p'),
-                                                time_end.strftime('%m/%d/%Y %H:%M %p'))
-        ms_outlook_selected_instances = ms_outlook_all_instances.Restrict(restriction)
+        ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
         ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
         ms_outlook_instances = dict()
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
@@ -132,7 +137,9 @@ class MicrosoftOutlookConnector:
                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — missing EntryID')
                 release_com_object_memory(ms_outlook_instance)
                 continue
-            ms_outlook_instances[ms_outlook_instance_data['EntryID']] = ms_outlook_instance_data
+
+            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
+            ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
             if ms_outlook_index % 50 == 0:
                 gc.collect()
@@ -172,7 +179,7 @@ class MicrosoftOutlookConnector:
                                                       g_calendar_start_date: str):
         try:
             g_calendar_start_date_utc = datetime.strptime(g_calendar_start_date,
-                                       '%Y-%m-%d-%H-%M-%S').replace(tzinfo=timezone.utc)
+                                                          '%Y-%m-%d-%H-%M-%S').replace(tzinfo=timezone.utc)
             print_display(f'{line_number()} UTC [{g_calendar_start_date_utc}]')
         except ValueError as value_error:
             raise ValueError(f'[Microsoft Outlook] Invalid start_utc format: [{value_error}]')
@@ -205,7 +212,7 @@ class MicrosoftOutlookConnector:
             if ms_outlook_appointment:
                 print_display(f'{line_number()} 03) Setting GCalendarMasterID for appointment [{ms_outlook_appointment.Subject}]')
                 ms_outlook_appointment.UserProperties.Add('GCalendarMasterID',
-                                               1)
+                                                          1)
                 print_display(f'{line_number()} 04) GCalendarMasterID property added for appointment [{ms_outlook_appointment.Subject}]')
                 ms_outlook_appointment.UserProperties['GCalendarMasterID'].Value = g_calendar_master_id
                 print_display(f'{line_number()} 05) GCalendarMasterID set successfully for [Microsoft Outlook] master [{trim_id(ms_outlook_master_id)}]')
@@ -215,6 +222,7 @@ class MicrosoftOutlookConnector:
 
     def get_recurrence_instances(self,
                                  ms_outlook_instance_id):
+        # TODO: 18 TO 180
         ms_outlook_recurrence = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
         if not ms_outlook_recurrence.IsRecurring:
             raise ValueError('[Microsoft Outlook] Provided ID is not a recurring appointment')
@@ -241,12 +249,12 @@ class MicrosoftOutlookConnector:
             print_display(f'{line_number()} [Microsoft Outlook] INSERT <<==')
             ms_outlook_appointment = self.ms_outlook_data.ms_outlook_create_item()
             ms_outlook_appointment_subject = ms_outlook_instance_body.get('Subject',
-                                                   '')
+                                                                          '')
             if ms_outlook_appointment_subject is None:
                 ms_outlook_appointment_subject = ''
             ms_outlook_appointment.Subject = str(ms_outlook_appointment_subject)
             ms_outlook_appointment_body = ms_outlook_instance_body.get('Body',
-                                                '')
+                                                                       '')
             if ms_outlook_appointment_body is None:
                 ms_outlook_appointment_body = ''
             ms_outlook_appointment.Body = str(ms_outlook_appointment_body)
@@ -260,20 +268,20 @@ class MicrosoftOutlookConnector:
             '''
 
             ms_outlook_appointment_location = ms_outlook_instance_body.get('Location',
-                                                    '')
+                                                                           '')
             if ms_outlook_appointment_location is None:
                 ms_outlook_appointment_location = ''
             ms_outlook_appointment.Location = str(ms_outlook_appointment_location)
             ms_outlook_start_date_utc = ms_outlook_instance_body.get('StartUTC',
-                                                     '')
+                                                                     '')
             ms_outlook_end_date_utc = ms_outlook_instance_body.get('EndUTC',
-                                                   '')
+                                                                   '')
             if ms_outlook_start_date_utc:
                 if isinstance(ms_outlook_start_date_utc,
                               str):
                     if 'T' in ms_outlook_start_date_utc:
                         ms_outlook_start_date = datetime.fromisoformat(ms_outlook_start_date_utc.replace('Z',
-                                                                            '+00:00'))
+                                                                                                         '+00:00'))
                     else:
                         ms_outlook_start_date = datetime.fromisoformat(ms_outlook_start_date_utc)
                 else:
@@ -284,7 +292,7 @@ class MicrosoftOutlookConnector:
                               str):
                     if 'T' in ms_outlook_end_date_utc:
                         recurrence_end_date = datetime.fromisoformat(ms_outlook_end_date_utc.replace('Z',
-                                                                                     '+00:00'))
+                                                                                                     '+00:00'))
                     else:
                         recurrence_end_date = datetime.fromisoformat(ms_outlook_end_date_utc)
                 else:
@@ -360,22 +368,22 @@ class MicrosoftOutlookConnector:
                                    ms_outlook_instance_body):
         try:
             print_display(f'{line_number()} [Microsoft Outlook] UPDATE <<==')
-            appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
+            ms_outlook_appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
             if 'Subject' in ms_outlook_instance_body:
-                subject = ms_outlook_instance_body['Subject']
-                if subject is None:
-                    subject = ''
-                appointment.Subject = str(subject)
+                ms_outlook_subject = ms_outlook_instance_body['Subject']
+                if ms_outlook_subject is None:
+                    ms_outlook_subject = ''
+                ms_outlook_appointment.Subject = str(ms_outlook_subject)
             if 'Body' in ms_outlook_instance_body:
-                body = ms_outlook_instance_body['Body']
-                if body is None:
-                    body = ''
-                appointment.Body = str(body)
+                ms_outlook_body = ms_outlook_instance_body['Body']
+                if ms_outlook_body is None:
+                    ms_outlook_body = ''
+                ms_outlook_appointment.Body = str(ms_outlook_body)
             if 'Location' in ms_outlook_instance_body:
-                location = ms_outlook_instance_body['Location']
-                if location is None:
-                    location = ''
-                appointment.Location = str(location)
+                ms_outlook_location = ms_outlook_instance_body['Location']
+                if ms_outlook_location is None:
+                    ms_outlook_location = ''
+                ms_outlook_appointment.Location = str(ms_outlook_location)
 
             '''
             if 'Organizer' in event_body:
@@ -396,7 +404,7 @@ class MicrosoftOutlookConnector:
                         start_dt = datetime.fromisoformat(start_str)
                 else:
                     start_dt = start_str
-                appointment.Start = start_dt
+                ms_outlook_appointment.Start = start_dt
             if 'EndUTC' in ms_outlook_instance_body:
                 end_str = ms_outlook_instance_body['EndUTC']
                 if isinstance(end_str,
@@ -408,20 +416,20 @@ class MicrosoftOutlookConnector:
                         end_dt = datetime.fromisoformat(end_str)
                 else:
                     end_dt = end_str
-                appointment.End = end_dt
+                ms_outlook_appointment.End = end_dt
             if 'ReminderMinutesBeforeStart' in ms_outlook_instance_body:
                 reminder_minutes = ms_outlook_instance_body['ReminderMinutesBeforeStart']
                 if reminder_minutes is not None:
-                    appointment.ReminderSet = True
-                    appointment.ReminderMinutesBeforeStart = int(reminder_minutes)
+                    ms_outlook_appointment.ReminderSet = True
+                    ms_outlook_appointment.ReminderMinutesBeforeStart = int(reminder_minutes)
             if 'Sensitivity' in ms_outlook_instance_body:
                 sensitivity = ms_outlook_instance_body['Sensitivity']
                 if sensitivity is not None:
-                    appointment.Sensitivity = int(sensitivity)
+                    ms_outlook_appointment.Sensitivity = int(sensitivity)
             if 'BusyStatus' in ms_outlook_instance_body:
                 busy_status = ms_outlook_instance_body['BusyStatus']
                 if busy_status is not None:
-                    appointment.BusyStatus = int(busy_status)
+                    ms_outlook_appointment.BusyStatus = int(busy_status)
             '''
             if 'RequiredAttendees' in event_body or 'OptionalAttendees' in event_body:
                 while appointment.Recipients.Count > 0:
@@ -446,9 +454,9 @@ class MicrosoftOutlookConnector:
                 if appointment.Recipients.Count > 0:
                     appointment.Recipients.ResolveAll()
             '''
-            appointment.Save()
-            print_display(f'{line_number()} [Microsoft Outlook] UPDATE SUCCESS: Event [{appointment.Subject}] updated')
-            return appointment
+            ms_outlook_appointment.Save()
+            print_display(f'{line_number()} [Microsoft Outlook] UPDATE SUCCESS: Event [{ms_outlook_appointment.Subject}] updated')
+            return ms_outlook_appointment
         except Exception as exception:
             print_display(f'{line_number()} [Microsoft Outlook] UPDATE ERROR: {exception}')
             import traceback
@@ -532,3 +540,73 @@ class MicrosoftOutlookConnector:
             return True
         except Exception as exception:
             raise ValueError(f'[Microsoft Outlook] Occurrence not found: [{exception}]')
+
+    def get_all_recurring_masters_ms_outlook(self):
+        '''
+        Fetches all recurring masters with no time restriction.
+        Needed for recurrences that started before the 18-day window
+        but still have active instances within it (e.g. Lunch since 2019).
+        '''
+        ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
+        ms_outlook_all_instances.IncludeRecurrences = False
+        ms_outlook_all_instances.Sort('[Start]')
+        ms_outlook_instances = dict()
+        for ms_outlook_instance in ms_outlook_all_instances:
+            try:
+                if not getattr(ms_outlook_instance,
+                               'IsRecurring',
+                               False):
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+                ms_outlook_properties = [attr for attr in dir(ms_outlook_instance) if not attr.startswith('_')]
+                ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
+                                                                             ms_outlook_properties)
+                if 'EntryID' not in ms_outlook_instance_data:
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+                ms_outlook_instances[ms_outlook_instance_data['EntryID']] = ms_outlook_instance_data
+            except Exception as exception:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING MASTER: [{exception}]')
+            finally:
+                release_com_object_memory(ms_outlook_instance)
+        return ms_outlook_instances
+
+    def get_recurring_masters_in_window_ms_outlook(self):
+        time_now = datetime.now()
+        time_begin = time_now - timedelta(days=constants.DAY_PAST)
+        time_end = time_now + timedelta(days=constants.DAY_NEXT)
+        ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
+        ms_outlook_all_instances.IncludeRecurrences = True
+        ms_outlook_all_instances.Sort('[Start]')
+        restriction_string = "([Start] >= '{}') AND [Start] <= '{}'"
+        restriction = restriction_string.format(time_begin.strftime('%m/%d/%Y %H:%M %p'),
+                                                time_end.strftime('%m/%d/%Y %H:%M %p'))
+        ms_outlook_selected_instances = ms_outlook_all_instances.Restrict(restriction)
+        ms_outlook_masters = dict()
+        for ms_outlook_instance in ms_outlook_selected_instances:
+            try:
+                if not getattr(ms_outlook_instance,
+                               'IsRecurring',
+                               False):
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+                ms_outlook_recurrence_pattern = ms_outlook_instance.GetRecurrencePattern()
+                ms_outlook_master = ms_outlook_recurrence_pattern.Appointment
+                if ms_outlook_master is None:
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+                master_entry_id = ms_outlook_master.EntryID
+                if master_entry_id in ms_outlook_masters:
+                    release_com_object_memory(ms_outlook_recurrence_pattern)
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+                ms_outlook_properties = [attr for attr in dir(ms_outlook_master) if not attr.startswith('_')]
+                ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_master,
+                                                                             ms_outlook_properties)
+                if 'EntryID' in ms_outlook_instance_data:
+                    ms_outlook_masters[master_entry_id] = ms_outlook_instance_data
+            except Exception as exception:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING MASTER: [{exception}]')
+            finally:
+                release_com_object_memory(ms_outlook_instance)
+        return ms_outlook_masters

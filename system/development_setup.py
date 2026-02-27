@@ -1,4 +1,6 @@
+from datetime import date
 from datetime import datetime
+from datetime import timedelta
 
 from connector.event_mapping import EventMapping
 from connector.g_calendar import GoogleCalendarConnector
@@ -230,9 +232,24 @@ class MessageSetup:
                                   event_title,
                                   side='ms_outlook',
                                   enabled=False):
-        first_day = 16
+        first_day = 23
         last_day = first_day + 4
         if enabled:
+            past_days = (date.today() - timedelta(days=50)).strftime('%Y-%m-%d')
+
+            self.create_daily_recurrence(start_time='12:00',
+                                         end_time='13:00',
+                                         start_day=past_days,
+                                         end_day=f'2026-02-{last_day:02d}',
+                                         title=f'Evento X {event_title} Recurrence',
+                                         location='Conference Room / Teams',
+                                         body='Daily project sync meeting.',
+
+                                         # attendees=['user1@me.con',
+                                         #            'user2@me.con'],
+
+                                         default=side)
+
             self.create_daily_recurrence(start_time='19:00',
                                          end_time='20:00',
                                          start_day=f'2026-02-{first_day:02d}',
@@ -315,10 +332,10 @@ class MessageSetup:
 
 
 if __name__ == '__main__':
-    event_title = 'OUTLOOK=15=G_CAL'
+    event_title = 'OUTLOOK=21=G_CAL'
     calendar_samples = 'ms_outlook'
     # calendar_samples = 'g_calendar'
-    generate_calendar_samples = False
+    generate_calendar_samples = True
     reset_event_mapping_file = True
     if reset_event_mapping_file:
         event_mapping = EventMapping()

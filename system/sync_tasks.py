@@ -2,15 +2,14 @@ from connector.calendar_instance import CalendarInstance
 from connector.event_mapping import EventMapping
 from connector.g_calendar import GoogleCalendarConnector
 from connector.ms_outlook import MicrosoftOutlookConnector
-from system.tools import extract_date_full
 from system.tools import convert_com_object_to_dictionary
+from system.tools import extract_date_full
 from system.tools import get_master_id
 from system.tools import line_number
 from system.tools import print_box
 from system.tools import print_display
-from system.tools import print_overline
-from system.tools import print_underline
 from system.tools import sort_json_list
+from system.tools import strip_symbols
 from system.tools import trim_id
 
 
@@ -164,11 +163,11 @@ class SyncTask:
                     calendar_event = CalendarInstance()
                     calendar_event.import_ms_outlook(ms_outlook_current_event)
                     g_calendar_exported_event = calendar_event.export_g_calendar()
-                    print_display(f'{line_number()} INSERTING EVENT: [{trim_id(ms_outlook_current_id)}]')
+                    print_display(f'{line_number()} [Microsoft Outlook] INSERTING EVENT: [{trim_id(ms_outlook_current_id)}]')
                     g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
                     if g_calendar_inserted_appointment:
                         g_calendar_master_id = g_calendar_inserted_appointment.get('id')
-                        print_display(f'{line_number()} ADDING EVENT: [{trim_id(ms_outlook_current_id)}] -> [{trim_id(g_calendar_master_id)}]')
+                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] -> [{trim_id(g_calendar_master_id)}]')
                         self.event_mapping.insert_instance(ms_outlook_current_id,
                                                            g_calendar_master_id)
 
@@ -196,94 +195,93 @@ class SyncTask:
         print_display(f'{line_number()} Checking for new recurrent events in [Microsoft Outlook]...')
         ms_outlook_events = self.ms_outlook_connection.get_all_instances_ms_outlook()
         for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
-            if ms_outlook_current_event.get('IsRecurring',
-                                            True):
-                master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id)
-                if not master_pair:
-                    calendar_event = CalendarInstance()
-                    calendar_event.import_ms_outlook(ms_outlook_current_event)
-                    g_calendar_exported_event = calendar_event.export_g_calendar()
-                    g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
-                    if g_calendar_inserted_appointment:
-                        g_calendar_id = g_calendar_inserted_appointment.get('id')
-                        g_calendar_master_id = get_master_id(g_calendar_id)
-                        print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE MASTER: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
-                        self.event_mapping.insert_recurrence(ms_outlook_current_id,
-                                                             g_calendar_id)
-                        ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
-                        g_calendar_instances = self.g_calendar_connection.get_single_instance_inside_recurrence_g_calendar(g_calendar_id).get('items',
-                                                                                                                                              [])
-                        self.ms_outlook_connection.set_recurrence_id(ms_outlook_current_id,
-                                                                     g_calendar_master_id)
-                        for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
-                                                                            sort_json_list(g_calendar_instances,
-                                                                                           'start.dateTime')):
-                            ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
-                            g_calendar_instance_string = trim_id(g_calendar_instance['id'])
-                            print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_current_id)}] [Microsoft Outlook] [{ms_outlook_instance_string}] <=> [Google Calendar] [{g_calendar_instance_string}]')
-                            ms_outlook_start = str(ms_outlook_instance['StartUTC']).replace(':',
-                                                                                            '').replace(' ',
-                                                                                                        '').replace('+',
-                                                                                                                    '').replace('-',
-                                                                                                                                '')
-                            ms_outlook_end = str(ms_outlook_instance['EndUTC']).replace(':',
-                                                                                        '').replace(' ',
-                                                                                                    '').replace('+',
-                                                                                                                '').replace('-',
-                                                                                                                            '')
-                            ms_outlook_instance_string = ms_outlook_instance['EntryID']
-                            self.event_mapping.insert_occurrence(ms_outlook_current_id,
-                                                                 f'{ms_outlook_instance_string}{ms_outlook_start}{ms_outlook_end}',
-                                                                 g_calendar_instance['id'])
+            if not ms_outlook_current_event.get('IsRecurring',
+                                                False):
+                continue
+            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id)
+            if not master_pair:
+                calendar_event = CalendarInstance()
+                calendar_event.import_ms_outlook(ms_outlook_current_event)
+                g_calendar_exported_event = calendar_event.export_g_calendar()
+                g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
+                if g_calendar_inserted_appointment:
+                    g_calendar_id = g_calendar_inserted_appointment.get('id')
+                    g_calendar_master_id = get_master_id(g_calendar_id)
+                    print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE MASTER: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
+                    self.event_mapping.insert_recurrence(ms_outlook_current_id,
+                                                         g_calendar_id)
+                    ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
+                    print('/' * 150)
+                    for a in ms_outlook_instances:
+                        print(a)
+                    print('+' * 150)
+
+                    g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
+                                                                                                                                               [])
+
+                    for b in g_calendar_instances:
+                        print(b)
+
+                    self.ms_outlook_connection.set_recurrence_id(ms_outlook_current_id,
+                                                                 g_calendar_master_id)
+                    for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
+                                                                        sort_json_list(g_calendar_instances,
+                                                                                       'start.dateTime')):
+                        ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
+                        g_calendar_instance_string = trim_id(g_calendar_instance['id'])
+                        print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_current_id)}] [Microsoft Outlook] [{ms_outlook_instance_string}] <=> [Google Calendar] [{g_calendar_instance_string}]')
+                        ms_outlook_start = strip_symbols(ms_outlook_instance['StartUTC'])
+                        ms_outlook_end = strip_symbols(ms_outlook_instance['EndUTC'])
+                        ms_outlook_instance_string = ms_outlook_instance['EntryID']
+                        self.event_mapping.insert_occurrence(ms_outlook_current_id,
+                                                             f'{ms_outlook_instance_string}{ms_outlook_start}{ms_outlook_end}',
+                                                             g_calendar_instance['id'])
 
     def copy_g_calendar_recurrent_event_to_ms_outlook(self):
         print_display(f'{line_number()} Checking for new recurrent events in [Google Calendar]...')
-        g_calendar_events_local = self.g_calendar_connection.get_all_sub_instances_g_calendar()
+        g_calendar_events_local = self.g_calendar_connection.get_all_instances_g_calendar()
         g_calendar_total_items = g_calendar_events_local.items()
         g_calendar_total_items_progress = 0
         g_calendar_total_items_count = len(g_calendar_total_items)
         for g_calendar_event_id, g_calendar_event_data in g_calendar_total_items:
             g_calendar_total_items_progress += 1
-            if 'recurrence' in g_calendar_event_data:
-                master_pair = self.event_mapping.get_recurrent_pair(g_calendar_event_id)
-                if not master_pair:
-                    calendar_event = CalendarInstance()
-                    calendar_event.import_g_calendar(g_calendar_event_data)
-                    ms_outlook_exported_event = calendar_event.export_ms_outlook()
-                    ms_outlook_inserted_appointment = self.ms_outlook_connection.insert_instance_ms_outlook(ms_outlook_exported_event)
-                    if ms_outlook_inserted_appointment:
-                        ms_outlook_entry_id = ms_outlook_inserted_appointment.EntryID
-                        print_display(f'{line_number()} 01-({g_calendar_total_items_progress}/{g_calendar_total_items_count}) ADDING RECURRENCE MASTER: [{trim_id(g_calendar_event_id)}] => [{trim_id(ms_outlook_entry_id)}]')
-                        self.event_mapping.insert_recurrence(ms_outlook_entry_id,
-                                                             g_calendar_event_id)
-                        g_calendar_instances = self.g_calendar_connection.get_single_instance_inside_recurrence_g_calendar(g_calendar_event_id).get('items',
-                                                                                                                                                    [])
-                        ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_entry_id)
-                        self.ms_outlook_connection.set_recurrence_id(ms_outlook_entry_id,
-                                                                     g_calendar_event_id)
-                        ms_outlook_total_items_progress = 0
-                        ms_outlook_total_items_count = len(ms_outlook_instances)
-                        for g_calendar_instance, ms_outlook_instance in zip(sort_json_list(g_calendar_instances,
-                                                                                           'start.dateTime'),
-                                                                            ms_outlook_instances):
-                            ms_outlook_total_items_progress += 1
-                            g_calendar_instance_string = trim_id(g_calendar_instance['id'])
-                            ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
-                            print_display(f'{line_number()} 02-({ms_outlook_total_items_progress}/{ms_outlook_total_items_count}) ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_entry_id)}] [Google Calendar] [{g_calendar_instance_string}] <=> [Microsoft Outlook] [{ms_outlook_instance_string}]')
-                            ms_outlook_start = str(ms_outlook_instance['StartUTC']).replace(':',
-                                                                                            '').replace(' ',
-                                                                                                        '').replace('+',
-                                                                                                                    '').replace('-',
-                                                                                                                                '')
-                            ms_outlook_end = str(ms_outlook_instance['EndUTC']).replace(':',
-                                                                                        '').replace(' ',
-                                                                                                    '').replace('+',
-                                                                                                                '').replace('-',
-                                                                                                                            '')
-                            ms_outlook_entry_id_string = ms_outlook_instance['EntryID']
-                            self.event_mapping.insert_occurrence(ms_outlook_entry_id,
-                                                                 f'{ms_outlook_entry_id_string}{ms_outlook_start}{ms_outlook_end}',
-                                                                 g_calendar_instance['id'])
+            if 'recurringEventId' not in g_calendar_event_data:
+                continue
+            g_calendar_master_id = get_master_id(g_calendar_event_id)
+            master_pair = self.event_mapping.get_recurrent_pair(g_calendar_master_id)
+
+            # master_pair = self.event_mapping.get_recurrent_pair(g_calendar_event_id)
+
+            if not master_pair:
+                calendar_event = CalendarInstance()
+                calendar_event.import_g_calendar(g_calendar_event_data)
+                ms_outlook_exported_event = calendar_event.export_ms_outlook()
+                ms_outlook_inserted_appointment = self.ms_outlook_connection.insert_instance_ms_outlook(ms_outlook_exported_event)
+                if ms_outlook_inserted_appointment:
+                    ms_outlook_entry_id = ms_outlook_inserted_appointment.EntryID
+                    print_display(f'{line_number()} 01-({g_calendar_total_items_progress}/{g_calendar_total_items_count}) [] ADDING RECURRENCE MASTER: [{trim_id(g_calendar_event_id)}] => [{trim_id(ms_outlook_entry_id)}]')
+                    self.event_mapping.insert_recurrence(ms_outlook_entry_id,
+                                                         g_calendar_event_id)
+                    g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_event_id).get('items',
+                                                                                                                                                     [])
+                    ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_entry_id)
+                    self.ms_outlook_connection.set_recurrence_id(ms_outlook_entry_id,
+                                                                 g_calendar_event_id)
+                    ms_outlook_total_items_progress = 0
+                    ms_outlook_total_items_count = len(ms_outlook_instances)
+                    for g_calendar_instance, ms_outlook_instance in zip(sort_json_list(g_calendar_instances,
+                                                                                       'start.dateTime'),
+                                                                        ms_outlook_instances):
+                        ms_outlook_total_items_progress += 1
+                        g_calendar_instance_string = trim_id(g_calendar_instance['id'])
+                        ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
+                        print_display(f'{line_number()} 02-({ms_outlook_total_items_progress}/{ms_outlook_total_items_count}) [] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_entry_id)}] [Google Calendar] [{g_calendar_instance_string}] <=> [Microsoft Outlook] [{ms_outlook_instance_string}]')
+                        ms_outlook_start = strip_symbols(ms_outlook_instance['StartUTC'])
+                        ms_outlook_end = strip_symbols(ms_outlook_instance['EndUTC'])
+                        ms_outlook_entry_id_string = ms_outlook_instance['EntryID']
+                        self.event_mapping.insert_occurrence(ms_outlook_entry_id,
+                                                             f'{ms_outlook_entry_id_string}{ms_outlook_start}{ms_outlook_end}',
+                                                             g_calendar_instance['id'])
 
     def sync_task(self):
         ms_outlook_to_g_calendar = 'Microsoft Outlook to Google Calendar'
@@ -321,4 +319,21 @@ class SyncTask:
 if __name__ == '__main__':
     sync_task = SyncTask()
     sync_task.clear_map()
+
     sync_task.sync_task()
+
+    '''
+    result = sync_task.ms_outlook_connection.get_all_instances_ms_outlook().items()
+    for x in result:
+        print('=' * 150)
+        print(x[1]['Subject'],
+              x[1]['StartUTC'])
+
+    result = sync_task.g_calendar_connection.get_all_instances_g_calendar()
+    print('+' * 150)
+    print('+' * 150)
+    for x in result:
+        print('=' * 150)
+        print(result[x]['summary'],
+              result[x]['start'])
+    '''
