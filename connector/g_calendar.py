@@ -31,11 +31,12 @@ _RETRYABLE_EXCEPTIONS = (ssl.SSLError,
                          TimeoutError,
                          OSError)
 _RETRY_STATUS_CODES = {429,
+                       499,
                        500,
                        502,
                        503,
                        504}
-_MAX_RETRIES = 4
+_MAX_RETRIES = 10
 _RETRY_BASE_DELAY = 2.0
 
 

@@ -3,5 +3,6 @@ google-auth
 google-auth-httplib2
 google-auth-oauthlib
 pystray
+python-dateutil
 pywin32
 tzlocal
