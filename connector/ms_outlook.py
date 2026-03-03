@@ -127,6 +127,7 @@ class MicrosoftOutlookConnector:
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
         ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
         ms_outlook_instances = dict()
+        print_display(f'{line_number()} [Microsoft Outlook] Getting instances...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
             try:
                 ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
@@ -144,7 +145,8 @@ class MicrosoftOutlookConnector:
             ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
             ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-            if ms_outlook_index % 50 == 0:
+            if ms_outlook_index % 100 == 0:
+                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}]')
                 gc.collect()
         gc.collect()
         return ms_outlook_instances
