@@ -30,13 +30,14 @@ _log_path = os.path.join(_base,
 _log_file = open(_log_path,
                  'a',
                  encoding='utf-8')
-sys.stdout = _log_file
-sys.stderr = _log_file
+
+constants.RUN_GUI = True
+if constants.RUN_GUI:
+    sys.stdout = _log_file
+    sys.stderr = _log_file
 
 sys.path.insert(0,
                 _base)
-
-constants.RUN_GUI = True
 
 # ---------------------------------------------------------------------------
 # Configuration
