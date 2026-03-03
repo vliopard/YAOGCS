@@ -291,14 +291,16 @@ class GoogleCalendarConnector:
                 g_calendar_summary = g_calendar_instance_body['summary']
                 g_calendar_date = g_calendar_instance_body['start']['dateTime']
 
-                item0 = self.get_instance_by_summary_and_start_g_calendar(g_calendar_summary,
-                                                                          g_calendar_date)['id']
+                item0_event = self.get_instance_by_summary_and_start_g_calendar(g_calendar_summary,
+                                                                                g_calendar_date)
+                item0 = item0_event['id'] if item0_event else None
                 print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: [{g_calendar_summary}|{type(g_calendar_summary)}][{g_calendar_date}|{type(g_calendar_date)}] = [{trim_id(item0)}]')
                 if check_item(item0,
                               self.event_mapping) == 1:
                     print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: FOUND')
                 else:
-                    item1 = self.get_instance_by_ical_uid_g_calendar(g_calendar_instance_id)['id']
+                    item1_event = self.get_instance_by_ical_uid_g_calendar(g_calendar_instance_id)
+                    item1 = item1_event['id'] if item1_event else None
                     print_display(f'{line_number()} [Google Calendar] 02) LOOKING iCalUID: [{trim_id(g_calendar_instance_id)}] = [{trim_id(item1)}]')
                     if check_item(item1,
                                   self.event_mapping) == 2:
