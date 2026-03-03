@@ -68,6 +68,8 @@ def measure_time(measured_function):
 
 
 def trim_id(identification):
+    if not identification:
+        return identification
     if len(identification) > 30:
         return f'{identification[8:18]}|{identification[-20:-9]}'
     return identification
