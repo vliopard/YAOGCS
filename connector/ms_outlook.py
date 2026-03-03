@@ -71,8 +71,9 @@ class MicrosoftOutlookConnector:
             ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(datetime.strptime(ms_outlook_start_date,
                                                                                           '%Y-%m-%d'))
             return convert_com_object_to_dictionary(ms_outlook_occurrence)
-        except pywintypes.com_error as com_error:
-            print_display(f'{line_number()} [Microsoft Outlook] COM ERROR: {com_error}')
+        except (pywintypes.com_error,
+                AttributeError) as com_error_type:
+            print_display(f'{line_number()} [Microsoft Outlook] COM ERROR: {com_error_type}')
             return None
 
     def get_instance_data_ms_outlook(self,
@@ -115,7 +116,8 @@ class MicrosoftOutlookConnector:
                     release_com_object_memory(ms_outlook_recurrence_pattern)
                 else:
                     ms_outlook_instance_data[ms_outlook_property] = ms_outlook_attributes
-            except pywintypes.com_error as com_error_type:
+            except (pywintypes.com_error,
+                    AttributeError) as com_error_type:
                 print_display(f'{line_number()} [Microsoft Outlook] COM ERROR for property [{ms_outlook_index}/{ms_outlook_selected_instances_length}] [{ms_outlook_property}] of item [{ms_outlook_instance.Subject}]: [{com_error_type}]')
                 continue
         return ms_outlook_instance_data
@@ -274,7 +276,8 @@ class MicrosoftOutlookConnector:
                 try:
                     ms_outlook_recurrence_item = ms_outlook_recurrence_pattern.GetOccurrence(ms_outlook_recurrence_current)
                     ms_outlook_recurrence_list.append(convert_com_object_to_dictionary(ms_outlook_recurrence_item))
-                except pywintypes.com_error:
+                except (pywintypes.com_error,
+                        AttributeError):
                     pass
             ms_outlook_recurrence_current = ms_outlook_recurrence_current + ms_outlook_recurrence_duration
         release_com_object_memory(ms_outlook_recurrence_pattern)

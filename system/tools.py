@@ -189,7 +189,8 @@ def convert_com_object_to_dictionary(com_object):
                                        com_object_attribute)
             if not callable(com_object_value):
                 dictionary_data[com_object_attribute] = com_object_value
-        except pywintypes.com_error as com_error_type:
+        except (pywintypes.com_error,
+                AttributeError) as com_error_type:
             print_display(f'{line_number()} ValueError for attribute [{com_object_attribute}]: [{com_error_type}]')
     release_com_object_memory(com_object)
     gc.collect()
