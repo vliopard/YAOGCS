@@ -6,9 +6,9 @@ from threading import Lock
 from typing import Optional
 from typing import Tuple
 
-from system.tools import utc_now
 from system.tools import line_number
 from system.tools import print_display
+from system.tools import utc_now
 
 
 class EventSide(Enum):
@@ -74,11 +74,20 @@ class EventMapping:
                           f,
                           indent=4,
                           ensure_ascii=False)
+            # On Windows, os.replace can fail with PermissionError if the
+            # destination file has a read-only attribute or is briefly locked.
+            # Explicitly clear the read-only flag before replacing.
+            if os.path.exists(self.event_map_file):
+                os.chmod(self.event_map_file,
+                         0o666)
             os.replace(temp_file,
                        self.event_map_file)
         except Exception as exception:
             if os.path.exists(temp_file):
-                os.remove(temp_file)
+                try:
+                    os.remove(temp_file)
+                except OSError:
+                    pass
             raise IOError(f'Failed to save mapping: {exception}')
 
     def clear_map(self):
