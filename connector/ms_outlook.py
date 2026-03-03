@@ -153,7 +153,6 @@ class MicrosoftOutlookConnector:
                                    recurrence_pattern.Exceptions.Count + 1):
                         exception_item = recurrence_pattern.Exceptions.Item(recurrence_item)
                         if exception_item.Deleted:
-                            print_display(f'{line_number()} [Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
                             release_com_object_memory(ms_outlook_instance)
                             continue
                 except Exception as recurrence_exception:
