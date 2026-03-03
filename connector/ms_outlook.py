@@ -129,6 +129,38 @@ class MicrosoftOutlookConnector:
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting instances...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
+            # 1. Skip itens movidos para pastas de exclusão
+            try:
+                parent_name = ms_outlook_instance.Parent.Name.lower()
+                deleted_folder_names = {'deleted items',
+                                        'itens excluídos',  # português
+                                        'recoverable items',
+                                        'trash', }
+                if parent_name in deleted_folder_names:
+                    print_display(f'{line_number()} [Outlook] SKIPPING DELETED ITEM: {ms_outlook_instance.Subject}')
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+            except Exception:
+                pass
+            # 2. Skip ocorrências deletadas dentro de séries recorrentes
+            if getattr(ms_outlook_instance,
+                       'IsRecurring',
+                       False):
+                recurrence_pattern = None
+                try:
+                    recurrence_pattern = ms_outlook_instance.GetRecurrencePattern()
+                    for recurrence_item in range(1,
+                                   recurrence_pattern.Exceptions.Count + 1):
+                        exception_item = recurrence_pattern.Exceptions.Item(recurrence_item)
+                        if exception_item.Deleted:
+                            print_display(f'{line_number()} [Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
+                            release_com_object_memory(ms_outlook_instance)
+                            continue
+                except Exception as recurrence_exception:
+                    print_display(f'{line_number()} [Outlook] Error reading exceptions: {recurrence_exception}')
+                finally:
+                    if recurrence_pattern is not None:
+                        release_com_object_memory(recurrence_pattern)
             try:
                 ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
             except Exception as exception:
