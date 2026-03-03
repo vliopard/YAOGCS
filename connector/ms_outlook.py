@@ -178,7 +178,7 @@ class MicrosoftOutlookConnector:
             if ms_outlook_entry_id not in ms_outlook_instances:
                 ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-            if ms_outlook_index % 50 == 0:
+            if ms_outlook_index % 100 == 0:
                 gc.collect()
         gc.collect()
         return ms_outlook_instances

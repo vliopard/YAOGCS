@@ -268,47 +268,49 @@ class GoogleCalendarConnector:
                        event_mapping: EventMapping):
             if current_item:
                 pair1 = event_mapping.get_recurrent_pair(get_master_id(current_item))
-                print_display(f'{line_number()} [Google Calendar] 04) LOOKING [{trim_id(current_item)}] = [{trim_id(pair1[1])}]')
+                print_display(f'{line_number()} [Google Calendar] 01) LOOKING [{trim_id(current_item)}] = [{trim_id(pair1[1])}]')
                 if pair1:
                     return 1
                 pair2 = event_mapping.get_instance_pair(get_master_id(current_item))
-                print_display(f'{line_number()} [Google Calendar] 05) LOOKING [{trim_id(current_item)}] = [{trim_id(pair2[1])}]')
+                print_display(f'{line_number()} [Google Calendar] 02) LOOKING [{trim_id(current_item)}] = [{trim_id(pair2[1])}]')
                 if pair2:
                     return 2
-            print_display(f'{line_number()} [Google Calendar] NOT FOUND')
+            print_display(f'{line_number()} [Google Calendar] 03) NOT FOUND')
             return 0
 
         insert_result = None
         try:
-            print_display(f'{line_number()} [Google Calendar] INSERT <<==')
-            insert_result = self.g_calendar_service.insert_instance_g_calendar(convert_object_to_string(g_calendar_instance_body))
+            print_display(f'{line_number()} [Google Calendar] 04) INSERT <<==')
+            g_calendar_instance_body_no_uid = convert_object_to_string(g_calendar_instance_body)
+            del g_calendar_instance_body_no_uid['iCalUID']
+            insert_result = self.g_calendar_service.insert_instance_g_calendar(g_calendar_instance_body_no_uid)
         except HttpError as http_error:
             if http_error.status_code == 409:
                 g_calendar_instance_id = g_calendar_instance_body['iCalUID']
                 g_calendar_instance_id_trim = trim_id(g_calendar_instance_id)
                 g_calendar_summary = g_calendar_instance_body['summary']
-                print_display(f'{line_number()} [Google Calendar] INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_instance_id_trim}] [{g_calendar_summary}] already/exists.]')
+                print_display(f'{line_number()} [Google Calendar] 05) INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_instance_id_trim}] [{g_calendar_summary}] already/exists.]')
                 g_calendar_summary = g_calendar_instance_body['summary']
                 g_calendar_date = g_calendar_instance_body['start']['dateTime']
 
                 item0_event = self.get_instance_by_summary_and_start_g_calendar(g_calendar_summary,
                                                                                 g_calendar_date)
                 item0 = item0_event['id'] if item0_event else None
-                print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: [{g_calendar_summary}|{type(g_calendar_summary)}][{g_calendar_date}|{type(g_calendar_date)}] = [{trim_id(item0)}]')
+                print_display(f'{line_number()} [Google Calendar] 06) LOOKING SUBJECT/DATE: [{g_calendar_summary}|{type(g_calendar_summary)}][{g_calendar_date}|{type(g_calendar_date)}] = [{trim_id(item0)}]')
                 if check_item(item0,
                               self.event_mapping) == 1:
-                    print_display(f'{line_number()} [Google Calendar] 01) LOOKING SUBJECT/DATE: FOUND')
+                    print_display(f'{line_number()} [Google Calendar] 07) LOOKING SUBJECT/DATE: FOUND')
                 else:
                     item1_event = self.get_instance_by_ical_uid_g_calendar(g_calendar_instance_id)
                     item1 = item1_event['id'] if item1_event else None
-                    print_display(f'{line_number()} [Google Calendar] 02) LOOKING iCalUID: [{trim_id(g_calendar_instance_id)}] = [{trim_id(item1)}]')
+                    print_display(f'{line_number()} [Google Calendar] 08) LOOKING iCalUID: [{trim_id(g_calendar_instance_id)}] = [{trim_id(item1)}]')
                     if check_item(item1,
                                   self.event_mapping) == 2:
-                        print_display(f'{line_number()} [Google Calendar] 02) LOOKING iCalUID: FOUND')
+                        print_display(f'{line_number()} [Google Calendar] 09) LOOKING iCalUID: FOUND')
                     else:
-                        print_display(f'{line_number()} [Google Calendar] 01) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
+                        print_display(f'{line_number()} [Google Calendar] 10) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
             else:
-                print_display(f'{line_number()} [Google Calendar] 02) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
+                print_display(f'{line_number()} [Google Calendar] 11) INSERT RESULT ERROR: [{http_error.status_code} | {http_error.error_details}]')
         return insert_result
 
     def get_instance_by_ical_uid_g_calendar(self,
