@@ -1,9 +1,11 @@
 import gc
 import json
+import os
 import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from pathlib import Path
 from time import sleep
 
 import pywintypes
@@ -40,6 +42,9 @@ class MicrosoftOutlookHelper:
 
 class MicrosoftOutlookConnector:
     def __init__(self):
+        base_dir = Path(__file__).resolve().parent.parent
+        database_dir = (base_dir / 'resources' / 'database').resolve()
+        self.ms_outlook_cache_file = str(database_dir / 'cache_time.json')
         self.ms_outlook_data = MicrosoftOutlookHelper()
         self.ms_outlook_cache = None
         self.ms_outlook_cache_time = 0
@@ -53,14 +58,20 @@ class MicrosoftOutlookConnector:
         return self.ms_outlook_cache_time
 
     def save_cache(self):
-        with open('../resources/database/cache_time.json',
+        with open(self.ms_outlook_cache_file,
                   'w') as f:
             json.dump({
                     'cache_time': self.ms_outlook_cache_time},
                     f)
 
     def load_cache(self):
-        with open('../resources/database/cache_time.json',
+        if not os.path.exists(self.ms_outlook_cache_file):
+            os.makedirs(os.path.dirname(self.ms_outlook_cache_file),
+                        exist_ok=True)
+            self.ms_outlook_cache_time = 0
+            self.save_cache()
+            return
+        with open(self.ms_outlook_cache_file,
                   'r') as f:
             data = json.load(f)
             self.ms_outlook_cache_time = data.get('cache_time',
