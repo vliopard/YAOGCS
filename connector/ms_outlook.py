@@ -129,55 +129,58 @@ class MicrosoftOutlookConnector:
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting instances...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
-            # 1. Skip itens movidos para pastas de exclusão
+            ms_outlook_counter = f'{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}'
             try:
                 parent_name = ms_outlook_instance.Parent.Name.lower()
                 deleted_folder_names = {'deleted items',
-                                        'itens excluídos',  # português
+                                        'itens excluídos',
                                         'recoverable items',
-                                        'trash', }
+                                        'trash'}
                 if parent_name in deleted_folder_names:
-                    print_display(f'{line_number()} [Outlook] SKIPPING DELETED ITEM: {ms_outlook_instance.Subject}')
+                    print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED ITEM: {ms_outlook_instance.Subject}')
                     release_com_object_memory(ms_outlook_instance)
                     continue
             except Exception:
                 pass
-            # 2. Skip ocorrências deletadas dentro de séries recorrentes
-            if getattr(ms_outlook_instance,
-                       'IsRecurring',
-                       False):
+            try:
+                ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
+                ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
+                                                                             ms_outlook_properties)
+            except Exception as exception:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — dir() - FAILED: [{exception}]')
+                release_com_object_memory(ms_outlook_instance)
+                continue
+            if 'EntryID' not in ms_outlook_instance_data or 'StartUTC' not in ms_outlook_instance_data:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — missing EntryID/StartUTC')
+                release_com_object_memory(ms_outlook_instance)
+                continue
+            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
+            if ms_outlook_instance_data.get('IsRecurring',
+                                            False):
                 recurrence_pattern = None
                 try:
                     recurrence_pattern = ms_outlook_instance.GetRecurrencePattern()
-                    for recurrence_item in range(1,
-                                   recurrence_pattern.Exceptions.Count + 1):
-                        exception_item = recurrence_pattern.Exceptions.Item(recurrence_item)
+                    for exception_item in range(1,
+                                                recurrence_pattern.Exceptions.Count + 1):
+                        exception_item = recurrence_pattern.Exceptions.Item(exception_item)
                         if exception_item.Deleted:
-                            release_com_object_memory(ms_outlook_instance)
-                            continue
-                except Exception as recurrence_exception:
-                    print_display(f'{line_number()} [Outlook] Error reading exceptions: {recurrence_exception}')
+                            if hasattr(exception_item.OriginalDate,
+                                       'Format'):
+                                date_string = exception_item.OriginalDate.Format('%Y-%m-%dT%H:%M:%S')
+                            else:
+                                date_string = exception_item.OriginalDate.strftime('%Y-%m-%dT%H:%M:%S')
+                            deleted_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(date_string)
+                            if ms_outlook_entry_id == deleted_id:
+                                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
+                                release_com_object_memory(ms_outlook_instance)
+                                continue
                 finally:
                     if recurrence_pattern is not None:
                         release_com_object_memory(recurrence_pattern)
-            try:
-                ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
-            except Exception as exception:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — dir() - FAILED: [{exception}]')
-                release_com_object_memory(ms_outlook_instance)
-                continue
-            ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
-                                                                         ms_outlook_properties)
-            if 'EntryID' not in ms_outlook_instance_data:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — missing EntryID')
-                release_com_object_memory(ms_outlook_instance)
-                continue
-
-            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
             ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
             if ms_outlook_index % 100 == 0:
-                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}]')
+                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
                 gc.collect()
         gc.collect()
         return ms_outlook_instances
