@@ -292,7 +292,6 @@ class GoogleCalendarConnector:
                 print_display(f'{line_number()} [Google Calendar] 05) INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_instance_id_trim}] [{g_calendar_summary}] already/exists.]')
                 g_calendar_summary = g_calendar_instance_body['summary']
                 g_calendar_date = g_calendar_instance_body['start']['dateTime']
-
                 item0_event = self.get_instance_by_summary_and_start_g_calendar(g_calendar_summary,
                                                                                 g_calendar_date)
                 item0 = item0_event['id'] if item0_event else None

@@ -232,15 +232,18 @@ class MessageSetup:
                                   event_title,
                                   side='ms_outlook',
                                   enabled=False):
-        first_day = 23
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
+        first_day = monday.day
         last_day = first_day + 4
+        current_year_month = monday.strftime('%Y-%m')
         if enabled:
             past_days = (date.today() - timedelta(days=50)).strftime('%Y-%m-%d')
 
             self.create_daily_recurrence(start_time='12:00',
                                          end_time='13:00',
                                          start_day=past_days,
-                                         end_day=f'2026-02-{last_day:02d}',
+                                         end_day=f'{current_year_month}-{last_day:02d}',
                                          title=f'Evento X {event_title} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
@@ -252,8 +255,8 @@ class MessageSetup:
 
             self.create_daily_recurrence(start_time='19:00',
                                          end_time='20:00',
-                                         start_day=f'2026-02-{first_day:02d}',
-                                         end_day=f'2026-02-{last_day:02d}',
+                                         start_day=f'{current_year_month}-{first_day:02d}',
+                                         end_day=f'{current_year_month}-{last_day:02d}',
                                          title=f'Evento 1 {event_title} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
@@ -264,8 +267,8 @@ class MessageSetup:
                                          default=side)
             self.create_daily_recurrence(start_time='20:00',
                                          end_time='21:00',
-                                         start_day=f'2026-02-{first_day:02d}',
-                                         end_day=f'2026-02-{last_day:02d}',
+                                         start_day=f'{current_year_month}-{first_day:02d}',
+                                         end_day=f'{current_year_month}-{last_day:02d}',
                                          title=f'Evento 2 {event_title} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
@@ -276,7 +279,7 @@ class MessageSetup:
                                          default=side)
             self.create_single_event(start_time='14:00',
                                      end_time='15:00',
-                                     start_day=f'2026-02-{first_day:02d}',
+                                     start_day=f'{current_year_month}-{first_day:02d}',
                                      title=f'Evento 0_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
@@ -287,7 +290,7 @@ class MessageSetup:
                                      default=side)
             self.create_single_event(start_time='15:00',
                                      end_time='16:00',
-                                     start_day=f'2026-02-{(first_day + 1):02d}',
+                                     start_day=f'{current_year_month}-{(first_day + 1):02d}',
                                      title=f'Evento 1_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
@@ -298,7 +301,7 @@ class MessageSetup:
                                      default=side)
             self.create_single_event(start_time='16:00',
                                      end_time='17:00',
-                                     start_day=f'2026-02-{(first_day + 2):02d}',
+                                     start_day=f'{current_year_month}-{(first_day + 2):02d}',
                                      title=f'Evento 2_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
@@ -309,7 +312,7 @@ class MessageSetup:
                                      default=side)
             self.create_single_event(start_time='17:00',
                                      end_time='18:00',
-                                     start_day=f'2026-02-{(first_day + 3):02d}',
+                                     start_day=f'{current_year_month}-{(first_day + 3):02d}',
                                      title=f'Evento 3_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
@@ -320,7 +323,7 @@ class MessageSetup:
                                      default=side)
             self.create_single_event(start_time='18:00',
                                      end_time='19:00',
-                                     start_day=f'2026-02-{(first_day + 4):02d}',
+                                     start_day=f'{current_year_month}-{(first_day + 4):02d}',
                                      title=f'Evento 4_{event_title} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',

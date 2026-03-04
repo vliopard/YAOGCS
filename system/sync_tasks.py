@@ -231,7 +231,7 @@ class SyncTask:
                                                                     ms_outlook_instance['StartUTC'])
                         print_box(f'{line_number()} [Microsoft Outlook] CREATE ID: [{ms_outlook_instance_string}]')
                         # TODO: OCCURRENCE IS RECURRENCE?
-                        self.event_mapping.insert_occurrence(ms_outlook_current_id,
+                        self.event_mapping.insert_occurrence(recover_date_id(ms_outlook_current_id),
                                                              ms_outlook_instance_string,
                                                              g_calendar_instance['id'])
 
