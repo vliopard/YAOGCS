@@ -14,6 +14,7 @@ import win32com.client
 import system.constants as constants
 from system.tools import convert_com_object_to_dictionary
 from system.tools import line_number
+from system.tools import print_box
 from system.tools import print_display
 from system.tools import print_overline
 from system.tools import print_underline
@@ -165,10 +166,9 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instance_data
 
     def get_all_instances_ms_outlook(self):
-        if self.ms_outlook_cache_time + 1800 < time.monotonic():
-            print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
-            return self.get_cache()
-
+        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + 1800:
+            print_box(f'{line_number()} [Microsoft Outlook] USING CACHE...')
+            return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
         ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
@@ -234,9 +234,9 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instances
 
     def get_all_recurrences_ms_outlook(self):
-        if self.ms_outlook_cache_time + 1800 < time.monotonic():
-            print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
-            return self.get_cache()
+        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + 1800:
+            print_box(f'{line_number()} [Microsoft Outlook] USING CACHE...')
+            return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
