@@ -9,6 +9,7 @@ from system.tools import get_master_id
 from system.tools import line_number
 from system.tools import print_box
 from system.tools import print_display
+from system.tools import recover_date_id
 from system.tools import sort_json_list
 from system.tools import strip_symbols
 from system.tools import trim_id
@@ -159,7 +160,7 @@ class SyncTask:
         for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
-                single_pair = self.event_mapping.get_instance_pair(ms_outlook_current_id)
+                single_pair = self.event_mapping.get_instance_pair(recover_date_id(ms_outlook_current_id))
                 if not single_pair:
                     calendar_event = CalendarInstance()
                     calendar_event.import_ms_outlook(ms_outlook_current_event)
@@ -169,7 +170,7 @@ class SyncTask:
                     if g_calendar_inserted_appointment:
                         g_calendar_master_id = g_calendar_inserted_appointment.get('id')
                         print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_master_id)}]')
-                        self.event_mapping.insert_instance(ms_outlook_current_id,
+                        self.event_mapping.insert_instance(recover_date_id(ms_outlook_current_id),
                                                            g_calendar_master_id,
                                                            g_calendar_exported_event['summary'])
 
@@ -201,7 +202,7 @@ class SyncTask:
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
                 continue
-            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id)
+            master_pair = self.event_mapping.get_recurrent_pair(recover_date_id(ms_outlook_current_id))
             print_box(f'{line_number()} [Microsoft Outlook] [{ms_outlook_current_id}] => [{master_pair}]')
             if not master_pair:
                 calendar_event = CalendarInstance()
@@ -212,13 +213,13 @@ class SyncTask:
                     g_calendar_id = g_calendar_inserted_appointment.get('id')
                     g_calendar_master_id = get_master_id(g_calendar_id)
                     print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE MASTER: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
-                    self.event_mapping.insert_recurrence(ms_outlook_current_id,
+                    self.event_mapping.insert_recurrence(recover_date_id(ms_outlook_current_id),
                                                          g_calendar_id,
                                                          g_calendar_exported_event['summary'])
                     ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
                     g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
                                                                                                                                                [])
-                    self.ms_outlook_connection.set_recurrence_id(ms_outlook_current_id,
+                    self.ms_outlook_connection.set_recurrence_id(recover_date_id(ms_outlook_current_id),
                                                                  g_calendar_master_id)
                     for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
                                                                         sort_json_list(g_calendar_instances,

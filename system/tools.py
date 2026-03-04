@@ -494,3 +494,7 @@ def create_date_id(instance_id,
                    instance_start):
     instance_date_start = strip_symbols(instance_start)
     return f'{instance_id}_{instance_date_start}'
+
+
+def recover_date_id(instance_id):
+    return instance_id.split('_')[0]

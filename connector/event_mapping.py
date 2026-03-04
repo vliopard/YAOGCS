@@ -7,6 +7,7 @@ from typing import Optional
 from typing import Tuple
 
 from system.tools import line_number
+from system.tools import print_box
 from system.tools import print_display
 from system.tools import utc_now
 
@@ -125,6 +126,7 @@ class EventMapping:
     def get_instance_pair(self,
                           event_id: str) -> Optional[Tuple[str, Optional[str]]]:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] recovering: [{event_id}]')
             single_events = self.event_map['single_events']
             side = self._identify_side(event_id,
                                        single_events)
@@ -140,6 +142,7 @@ class EventMapping:
     def get_recurrent_pair(self,
                            master_id: str) -> Optional[Tuple[str, Optional[str]]]:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] get recurrent pair: [{master_id}]')
             ms_outlook_master_id = self._find_recurrent_master(master_id)
             if not ms_outlook_master_id:
                 return None
@@ -152,6 +155,7 @@ class EventMapping:
                         g_calendar_id: str,
                         instance_name: str = None) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] inserting instance: [{ms_outlook_id}]')
             single_events = self.event_map['single_events']
             if ms_outlook_id in single_events:
                 return False
@@ -166,6 +170,7 @@ class EventMapping:
                           g_calendar_master_id: str,
                           instance_name: str = None) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] inserting recurrence: [{ms_outlook_master_id}]')
             recurrent_events = self.event_map['recurrent_events']
             if ms_outlook_master_id in recurrent_events:
                 return False
@@ -181,6 +186,7 @@ class EventMapping:
                           ms_outlook_instance_id: str,
                           g_calendar_instance_id: str) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] inserting occurrence: [{ms_outlook_instance_id}]')
             recurrent_events = self.event_map['recurrent_events']
             ms_outlook_master_id = self._find_recurrent_master(master_id)
             if not ms_outlook_master_id:
@@ -192,6 +198,7 @@ class EventMapping:
     def remove_instance(self,
                         event_id: str) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] removing instance: [{event_id}]')
             single_events = self.event_map['single_events']
             single_events_meta = self.event_map['single_events_meta']
             side = self._identify_side(event_id,
@@ -215,6 +222,7 @@ class EventMapping:
     def remove_g_calendar_recurrence(self,
                                      g_calendar_instance_id: str) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] removing [Google Calendar] recurrence: [{g_calendar_instance_id}]')
             recurrent_events = self.event_map['recurrent_events']
             r_items = recurrent_events.items()
             for ms_outlook_master_id, ms_outlook_data in r_items:
@@ -227,6 +235,7 @@ class EventMapping:
     def remove_ms_outlook_recurrence(self,
                                      ms_outlook_instance_id: str) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] removing [Microsoft Outlook] recurrence: [{ms_outlook_instance_id}]')
             recurrent_events = self.event_map['recurrent_events']
             for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
                 if ms_outlook_master_id == ms_outlook_instance_id:
@@ -238,6 +247,7 @@ class EventMapping:
     def remove_generic_occurrence(self,
                                   generic_instance_id: str) -> bool:
         with self._lock:
+            print_box(f'{line_number()} [EVENT MAPPING] removing generic: [{generic_instance_id}]')
             recurrent_events = self.event_map['recurrent_events']
             for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
                 ms_outlook_instances = ms_outlook_data['instances']

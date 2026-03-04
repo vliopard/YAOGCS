@@ -13,13 +13,13 @@ import win32com.client
 
 import system.constants as constants
 from system.tools import convert_com_object_to_dictionary
+from system.tools import create_date_id
 from system.tools import line_number
 from system.tools import print_box
 from system.tools import print_display
 from system.tools import print_overline
 from system.tools import print_underline
 from system.tools import release_com_object_memory
-from system.tools import strip_symbols
 from system.tools import trim_id
 
 
@@ -200,7 +200,8 @@ class MicrosoftOutlookConnector:
                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — missing EntryID/StartUTC')
                 release_com_object_memory(ms_outlook_instance)
                 continue
-            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
+            ms_outlook_entry_id = create_date_id(ms_outlook_instance_data['EntryID'],
+                                                 ms_outlook_instance_data['StartUTC'])
             if ms_outlook_instance_data.get('IsRecurring',
                                             False):
                 recurrence_pattern = None
@@ -215,7 +216,8 @@ class MicrosoftOutlookConnector:
                                 date_string = exception_item.OriginalDate.Format('%Y-%m-%dT%H:%M:%S')
                             else:
                                 date_string = exception_item.OriginalDate.strftime('%Y-%m-%dT%H:%M:%S')
-                            deleted_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(date_string)
+                            deleted_id = create_date_id(ms_outlook_instance_data['EntryID'],
+                                                        date_string)
                             if ms_outlook_entry_id == deleted_id:
                                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
                                 release_com_object_memory(ms_outlook_instance)
@@ -273,7 +275,8 @@ class MicrosoftOutlookConnector:
                                                 False):
                 release_com_object_memory(ms_outlook_instance)
                 continue
-            ms_outlook_entry_id = ms_outlook_instance_data['EntryID'] + '_' + strip_symbols(ms_outlook_instance_data['StartUTC'])
+            ms_outlook_entry_id = create_date_id(ms_outlook_instance_data['EntryID'],
+                                                 ms_outlook_instance_data['StartUTC'])
             if ms_outlook_entry_id not in ms_outlook_instances:
                 ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
