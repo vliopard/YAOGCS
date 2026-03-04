@@ -35,9 +35,10 @@ class EventMapping:
 
     def _get_default_structure(self) -> dict:
         return {
-                'single_events'   : {},
-                'recurrent_events': {},
-                'metadata'        : {
+                'single_events'     : {},
+                'single_events_meta': {},
+                'recurrent_events'  : {},
+                'metadata'          : {
                         'version'  : self.VERSION,
                         'last_sync': utc_now()}}
 
@@ -51,6 +52,9 @@ class EventMapping:
                 data = json.load(file_reader)
                 if 'single_events' not in data or 'recurrent_events' not in data:
                     return self._get_default_structure()
+                # migrate existing maps that predate single_events_meta
+                if 'single_events_meta' not in data:
+                    data['single_events_meta'] = dict()
                 return data
         except (json.JSONDecodeError,
                 IOError) as errors:
