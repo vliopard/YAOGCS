@@ -201,11 +201,8 @@ class SyncTask:
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
                 continue
-            ms_outlook_current_id_string = create_date_id(ms_outlook_current_id,
-                                                          ms_outlook_current_event['StartUTC'],
-                                                          ms_outlook_current_event['EndUTC'])
-            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id_string)
-            print_box(f'{line_number()} [Microsoft Outlook] [{ms_outlook_current_id_string}] => [{master_pair}]')
+            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id)
+            print_box(f'{line_number()} [Microsoft Outlook] [{ms_outlook_current_id}] => [{master_pair}]')
             if not master_pair:
                 calendar_event = CalendarInstance()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
@@ -232,6 +229,7 @@ class SyncTask:
                         ms_outlook_instance_string = create_date_id(ms_outlook_instance['EntryID'],
                                                                     ms_outlook_instance['StartUTC'],
                                                                     ms_outlook_instance['EndUTC'])
+                        print_box(f'{line_number()} [Microsoft Outlook] CREATE ID: [{ms_outlook_instance_string}]')
                         # TODO: OCCURRENCE IS RECURRENCE?
                         self.event_mapping.insert_occurrence(ms_outlook_current_id,
                                                              ms_outlook_instance_string,
