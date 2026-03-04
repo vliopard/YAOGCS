@@ -156,6 +156,10 @@ class MicrosoftOutlookConnector:
                     ms_outlook_instance_data['recurrence_type'] = ms_outlook_recurrence_pattern.RecurrenceType
                     ms_outlook_instance_data['recurrence_interval'] = ms_outlook_recurrence_pattern.Interval
                     ms_outlook_instance_data['recurrence_end'] = ms_outlook_recurrence_pattern.PatternEndDate.Format('%Y-%m-%d')
+                    # FIX: capture DayOfWeekMask so weekly patterns preserve
+                    # their specific days (e.g. Mon-Fri) when exported to RRULE
+                    ms_outlook_instance_data['recurrence_day_of_week_mask'] = ms_outlook_recurrence_pattern.DayOfWeekMask
+                    # FIX END
                     release_com_object_memory(ms_outlook_recurrence_pattern)
                 else:
                     ms_outlook_instance_data[ms_outlook_property] = ms_outlook_attributes
@@ -486,6 +490,12 @@ class MicrosoftOutlookConnector:
                                                                              0))
                 recurrence.Interval = int(ms_outlook_instance_body.get('recurrence_interval',
                                                                        1))
+                # FIX: restore DayOfWeekMask for weekly patterns so Outlook
+                # knows which days of the week the recurrence falls on
+                recurrence_day_of_week_mask = ms_outlook_instance_body.get('recurrence_day_of_week_mask')
+                if recurrence_day_of_week_mask is not None:
+                    recurrence.DayOfWeekMask = int(recurrence_day_of_week_mask)
+                # FIX END
                 recurrence.PatternStartDate = ms_outlook_appointment.Start
                 recurrence_end = ms_outlook_instance_body.get('recurrence_end')
                 if recurrence_end:

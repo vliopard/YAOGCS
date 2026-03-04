@@ -15,6 +15,34 @@ from system.tools import print_overline
 from system.tools import print_underline
 
 
+# FIX: Outlook DayOfWeekMask bit values => iCalendar BYDAY abbreviations
+_OL_DAY_MASK_TO_BYDAY = {
+        1 : 'SU',
+        2 : 'MO',
+        4 : 'TU',
+        8 : 'WE',
+        16: 'TH',
+        32: 'FR',
+        64: 'SA',
+}
+
+# FIX: iCalendar BYDAY abbreviations => Outlook DayOfWeekMask bit values
+_BYDAY_TO_OL_DAY_MASK = {v: k for k, v in _OL_DAY_MASK_TO_BYDAY.items()}
+
+
+def _day_mask_to_byday(mask: int) -> str:
+    """Convert an Outlook DayOfWeekMask integer to a BYDAY string (e.g. 'MO,TU,WE,TH,FR')."""
+    return ','.join(day for bit, day in _OL_DAY_MASK_TO_BYDAY.items() if mask & bit)
+
+
+def _byday_to_day_mask(byday: str) -> int:
+    """Convert a BYDAY string (e.g. 'MO,TU,WE,TH,FR') to an Outlook DayOfWeekMask integer."""
+    total = 0
+    for day in byday.split(','):
+        total |= _BYDAY_TO_OL_DAY_MASK.get(day.strip().upper(), 0)
+    return total
+# FIX END
+
 class CalendarInstance:
     def __init__(self):
         self.shared_uid = None
@@ -223,6 +251,17 @@ class CalendarInstance:
                     recurrence_until_string = recurrence_until.replace('-',
                                                                        '') + 'T235959Z'
             recurrence_rule = f'RRULE:FREQ={recurrence_frequency};INTERVAL={recurrence_interval}'
+            # FIX: for weekly recurrences, append BYDAY so Google Calendar
+            # knows exactly which days of the week the event repeats on.
+            # Without this, a Mon-Fri recurrence would be treated as
+            # repeating only on the start date's weekday.
+            if recurrence_frequency == 'WEEKLY':
+                day_mask = ms_outlook_event.get('recurrence_day_of_week_mask', 0)
+                if day_mask:
+                    byday = _day_mask_to_byday(day_mask)
+                    if byday:
+                        recurrence_rule += f';BYDAY={byday}'
+            # FIX END
             if recurrence_until_string:
                 recurrence_rule += f';UNTIL={recurrence_until_string}'
             self.shared_recurrence = recurrence_rule
@@ -246,6 +285,7 @@ class CalendarInstance:
                                                                                                                               'IsRecurring',
                                                                                                                               'recurrence_type',
                                                                                                                               'recurrence_interval',
+                                                                                                                              'recurrence_day_of_week_mask',
                                                                                                                               'recurrence_end',
                                                                                                                               'ReminderMinutesBeforeStart',
                                                                                                                               'Sensitivity',
@@ -284,6 +324,15 @@ class CalendarInstance:
                 recurrence_until_date = parser.parse(recurrence_until)
                 recurrence_until_date = recurrence_until_date.date()
                 ms_outlook_export_event['recurrence_end'] = recurrence_until_date.strftime('%Y-%m-%d')
+            # FIX: parse BYDAY from the RRULE and convert back to an Outlook
+            # DayOfWeekMask so that weekly patterns written to Outlook
+            # preserve the correct days of the week.
+            if 'BYDAY=' in recurrence_rule:
+                byday_value = recurrence_rule.split('BYDAY=')[1].split(';')[0]
+                day_mask = _byday_to_day_mask(byday_value)
+                if day_mask:
+                    ms_outlook_export_event['recurrence_day_of_week_mask'] = day_mask
+            # FIX END
 
         ms_outlook_export_event.update(self.ms_outlook_only)
         return ms_outlook_export_event
