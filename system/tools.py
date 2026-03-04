@@ -488,3 +488,8 @@ def extract_date_full(text: str) -> str | None:
         return None
     year, month, day, hour, minute, second = match.groups()
     return f'{year}-{month}-{day}-{hour}-{minute}-{second}'
+
+def create_date_id(a, b, c):
+    b1 = strip_symbols(b['StartUTC'])
+    c1 = strip_symbols(c['EndUTC'])
+    return f'{a}{b1}{c1}'

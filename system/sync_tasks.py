@@ -3,6 +3,7 @@ from connector.event_mapping import EventMapping
 from connector.g_calendar import GoogleCalendarConnector
 from connector.ms_outlook import MicrosoftOutlookConnector
 from system.tools import convert_com_object_to_dictionary
+from system.tools import create_date_id
 from system.tools import extract_date_full
 from system.tools import get_master_id
 from system.tools import line_number
@@ -200,7 +201,10 @@ class SyncTask:
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
                 continue
-            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id)
+            ms_outlook_current_id_string = create_date_id(ms_outlook_current_id,
+                                                          ms_outlook_current_event['StartUTC'],
+                                                          ms_outlook_current_event['EndUTC'])
+            master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id_string)
             if not master_pair:
                 calendar_event = CalendarInstance()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
@@ -224,12 +228,12 @@ class SyncTask:
                         ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
                         g_calendar_instance_string = trim_id(g_calendar_instance['id'])
                         print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_current_id)}] [Microsoft Outlook] [{ms_outlook_instance_string}] <=> [Google Calendar] [{g_calendar_instance_string}]')
-                        ms_outlook_start = strip_symbols(ms_outlook_instance['StartUTC'])
-                        ms_outlook_end = strip_symbols(ms_outlook_instance['EndUTC'])
-                        ms_outlook_instance_string = ms_outlook_instance['EntryID']
+                        ms_outlook_instance_string = create_date_id(ms_outlook_instance['EntryID'],
+                                                                    ms_outlook_instance['StartUTC'],
+                                                                    ms_outlook_instance['EndUTC'])
                         # TODO: OCCURRENCE IS RECURRENCE?
                         self.event_mapping.insert_occurrence(ms_outlook_current_id,
-                                                             f'{ms_outlook_instance_string}{ms_outlook_start}{ms_outlook_end}',
+                                                             ms_outlook_instance_string,
                                                              g_calendar_instance['id'])
 
     def copy_g_calendar_recurrent_event_to_ms_outlook(self):
