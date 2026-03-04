@@ -493,4 +493,4 @@ def extract_date_full(text: str) -> str | None:
 def create_date_id(instance_id,
                    instance_start):
     instance_date_start = strip_symbols(instance_start)
-    return f'{instance_id}{instance_date_start}'
+    return f'{instance_id}_{instance_date_start}'
