@@ -29,6 +29,19 @@ _OL_DAY_MASK_TO_BYDAY = {
 # FIX: iCalendar BYDAY abbreviations => Outlook DayOfWeekMask bit values
 _BYDAY_TO_OL_DAY_MASK = {v: k for k, v in _OL_DAY_MASK_TO_BYDAY.items()}
 
+# FIX: Outlook Instance values (1-5) => iCalendar BYSETPOS values.
+# Outlook uses 5 to mean "last"; iCalendar uses -1.
+_OL_INSTANCE_TO_BYSETPOS = {
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: -1,
+}
+
+# FIX: iCalendar BYSETPOS values => Outlook Instance values
+_BYSETPOS_TO_OL_INSTANCE = {v: k for k, v in _OL_INSTANCE_TO_BYSETPOS.items()}
+
 
 def _day_mask_to_byday(mask: int) -> str:
     """Convert an Outlook DayOfWeekMask integer to a BYDAY string (e.g. 'MO,TU,WE,TH,FR')."""
@@ -229,15 +242,17 @@ class CalendarInstance:
                         'optional': True})
         '''
         if ms_outlook_event.get('IsRecurring'):
+            # FIX: added type 6 (olRecursYearNth) which was missing entirely
+            # and would have fallen through to the 'DAILY' default
             frequency_map = {
                     0: 'DAILY',
                     1: 'WEEKLY',
                     2: 'MONTHLY',
                     3: 'MONTHLY',
-                    5: 'YEARLY'}
-            recurrence_frequency = frequency_map.get(ms_outlook_event.get('recurrence_type',
-                                                                          0),
-                                                     'DAILY')
+                    5: 'YEARLY',
+                    6: 'YEARLY'}
+            recurrence_type = ms_outlook_event.get('recurrence_type', 0)
+            recurrence_frequency = frequency_map.get(recurrence_type, 'DAILY')
             recurrence_interval = ms_outlook_event.get('recurrence_interval',
                                                        1)
             recurrence_until = ms_outlook_event.get('recurrence_end')
@@ -254,14 +269,44 @@ class CalendarInstance:
             # FIX: for weekly recurrences, append BYDAY so Google Calendar
             # knows exactly which days of the week the event repeats on.
             # Without this, a Mon-Fri recurrence would be treated as
-            # repeating only on the start date's weekday.
+            # repeating only on the start date's weekday.            
+            day_mask = ms_outlook_event.get('recurrence_day_of_week_mask', 0)
+            recurrence_instance = ms_outlook_event.get('recurrence_instance', 0)
+            recurrence_month_of_year = ms_outlook_event.get('recurrence_month_of_year', 0)
+
             if recurrence_frequency == 'WEEKLY':
-                day_mask = ms_outlook_event.get('recurrence_day_of_week_mask', 0)
+                # FIX: weekly — append BYDAY so Google Calendar knows which
+                # days the event repeats on (e.g. Mon-Fri).
+                # Without this a Mon-Fri pattern appears as a single-day weekly.
                 if day_mask:
                     byday = _day_mask_to_byday(day_mask)
                     if byday:
                         recurrence_rule += f';BYDAY={byday}'
             # FIX END
+            elif recurrence_frequency == 'MONTHLY' and recurrence_type == 3:
+                # FIX: monthly-nth (olRecursMonthNth) — "Nth weekday of month"
+                # e.g. "3rd Thursday" needs BYDAY=TH and BYSETPOS=3.
+                # Plain monthly (type 2) needs neither; the date is in start.
+                if day_mask:
+                    byday = _day_mask_to_byday(day_mask)
+                    bysetpos = _OL_INSTANCE_TO_BYSETPOS.get(recurrence_instance, recurrence_instance)
+                    if byday:
+                        recurrence_rule += f';BYDAY={byday};BYSETPOS={bysetpos}'
+
+            elif recurrence_frequency == 'YEARLY':
+                # FIX: both yearly types need BYMONTH so Google Calendar
+                # knows which month of the year the event falls in.
+                if recurrence_month_of_year:
+                    recurrence_rule += f';BYMONTH={recurrence_month_of_year}'
+                if recurrence_type == 6:
+                    # FIX: yearly-nth (olRecursYearNth) also needs BYDAY and
+                    # BYSETPOS — e.g. "last Friday of November"
+                    if day_mask:
+                        byday = _day_mask_to_byday(day_mask)
+                        bysetpos = _OL_INSTANCE_TO_BYSETPOS.get(recurrence_instance, recurrence_instance)
+                        if byday:
+                            recurrence_rule += f';BYDAY={byday};BYSETPOS={bysetpos}'
+
             if recurrence_until_string:
                 recurrence_rule += f';UNTIL={recurrence_until_string}'
             self.shared_recurrence = recurrence_rule
@@ -286,6 +331,8 @@ class CalendarInstance:
                                                                                                                               'recurrence_type',
                                                                                                                               'recurrence_interval',
                                                                                                                               'recurrence_day_of_week_mask',
+                                                                                                                              'recurrence_instance',
+                                                                                                                              'recurrence_month_of_year',
                                                                                                                               'recurrence_end',
                                                                                                                               'ReminderMinutesBeforeStart',
                                                                                                                               'Sensitivity',
@@ -316,7 +363,26 @@ class CalendarInstance:
         '''
         if self.shared_recurrence:
             recurrence_rule = self.shared_recurrence
-            ms_outlook_export_event['recurrence_type'] = 0 if 'DAILY' in recurrence_rule else 1 if 'WEEKLY' in recurrence_rule else 2
+
+            # FIX: determine recurrence_type more precisely now that we
+            # distinguish type 3 (monthly-nth) and type 6 (yearly-nth)
+            has_byday = 'BYDAY=' in recurrence_rule
+            has_bysetpos = 'BYSETPOS=' in recurrence_rule
+            has_bymonth = 'BYMONTH=' in recurrence_rule
+
+            if 'FREQ=DAILY' in recurrence_rule:
+                ms_outlook_export_event['recurrence_type'] = 0
+            elif 'FREQ=WEEKLY' in recurrence_rule:
+                ms_outlook_export_event['recurrence_type'] = 1
+            elif 'FREQ=MONTHLY' in recurrence_rule:
+                # type 3 = monthly-nth (has BYDAY+BYSETPOS); type 2 = plain monthly
+                ms_outlook_export_event['recurrence_type'] = 3 if (has_byday and has_bysetpos) else 2
+            elif 'FREQ=YEARLY' in recurrence_rule:
+                # type 6 = yearly-nth (has BYDAY+BYSETPOS); type 5 = plain yearly
+                ms_outlook_export_event['recurrence_type'] = 6 if (has_byday and has_bysetpos) else 5
+            else:
+                ms_outlook_export_event['recurrence_type'] = 0
+
             if 'INTERVAL=' in recurrence_rule:
                 ms_outlook_export_event['recurrence_interval'] = int(recurrence_rule.split('INTERVAL=')[1].split(';')[0])
             if 'UNTIL=' in recurrence_rule:
@@ -327,12 +393,26 @@ class CalendarInstance:
             # FIX: parse BYDAY from the RRULE and convert back to an Outlook
             # DayOfWeekMask so that weekly patterns written to Outlook
             # preserve the correct days of the week.
-            if 'BYDAY=' in recurrence_rule:
+            # FIX: parse BYDAY back to DayOfWeekMask for weekly (type 1),
+            # monthly-nth (type 3), and yearly-nth (type 6)
+            if has_byday:
                 byday_value = recurrence_rule.split('BYDAY=')[1].split(';')[0]
                 day_mask = _byday_to_day_mask(byday_value)
                 if day_mask:
                     ms_outlook_export_event['recurrence_day_of_week_mask'] = day_mask
             # FIX END
+            # FIX: parse BYSETPOS back to Outlook Instance for monthly-nth
+            # (type 3) and yearly-nth (type 6); iCalendar -1 maps to
+            # Outlook Instance 5 meaning "last"
+            if has_bysetpos:
+                bysetpos_raw = int(recurrence_rule.split('BYSETPOS=')[1].split(';')[0])
+                ol_instance = _BYSETPOS_TO_OL_INSTANCE.get(bysetpos_raw, bysetpos_raw)
+                ms_outlook_export_event['recurrence_instance'] = ol_instance
+
+            # FIX: parse BYMONTH back to MonthOfYear for yearly (type 5)
+            # and yearly-nth (type 6)
+            if has_bymonth:
+                ms_outlook_export_event['recurrence_month_of_year'] = int(recurrence_rule.split('BYMONTH=')[1].split(';')[0])
 
         ms_outlook_export_event.update(self.ms_outlook_only)
         return ms_outlook_export_event

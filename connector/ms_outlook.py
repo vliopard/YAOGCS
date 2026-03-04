@@ -156,10 +156,18 @@ class MicrosoftOutlookConnector:
                     ms_outlook_instance_data['recurrence_type'] = ms_outlook_recurrence_pattern.RecurrenceType
                     ms_outlook_instance_data['recurrence_interval'] = ms_outlook_recurrence_pattern.Interval
                     ms_outlook_instance_data['recurrence_end'] = ms_outlook_recurrence_pattern.PatternEndDate.Format('%Y-%m-%d')
+                    # FIX: capture DayOfWeekMask for weekly (type 1),
+                    # monthly-nth (type 3), and yearly-nth (type 6) patterns
                     # FIX: capture DayOfWeekMask so weekly patterns preserve
                     # their specific days (e.g. Mon-Fri) when exported to RRULE
                     ms_outlook_instance_data['recurrence_day_of_week_mask'] = ms_outlook_recurrence_pattern.DayOfWeekMask
                     # FIX END
+                    # FIX: capture Instance (BYSETPOS) for monthly-nth (type 3)
+                    # and yearly-nth (type 6) — e.g. "3rd Thursday of the month"
+                    ms_outlook_instance_data['recurrence_instance'] = ms_outlook_recurrence_pattern.Instance
+                    # FIX: capture MonthOfYear for yearly (type 5) and
+                    # yearly-nth (type 6) patterns — e.g. November = 11
+                    ms_outlook_instance_data['recurrence_month_of_year'] = ms_outlook_recurrence_pattern.MonthOfYear
                     release_com_object_memory(ms_outlook_recurrence_pattern)
                 else:
                     ms_outlook_instance_data[ms_outlook_property] = ms_outlook_attributes
@@ -175,11 +183,10 @@ class MicrosoftOutlookConnector:
             return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
-        ms_outlook_selected_instances_length = len(ms_outlook_all_instances)
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting instances...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
-            ms_outlook_counter = f'{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}'
+            ms_outlook_counter = f'{ms_outlook_index:,}'
             try:
                 parent_name = ms_outlook_instance.Parent.Name.lower()
                 deleted_folder_names = {'deleted items',
@@ -231,10 +238,7 @@ class MicrosoftOutlookConnector:
                         release_com_object_memory(recurrence_pattern)
             ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-            if ms_outlook_index % 100 == 0:
-                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
-                gc.collect()
-        gc.collect()
+        # gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
         self.set_cache()
         return ms_outlook_instances
@@ -246,11 +250,10 @@ class MicrosoftOutlookConnector:
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
-        ms_outlook_selected_instances_length = len(ms_outlook_all_instances)
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting recurrences...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
-            ms_outlook_counter = f'{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}'
+            ms_outlook_counter = f'{ms_outlook_index:,}'
             try:
                 parent_name = ms_outlook_instance.Parent.Name.lower()
                 deleted_folder_names = {'deleted items',
@@ -284,10 +287,7 @@ class MicrosoftOutlookConnector:
             if ms_outlook_entry_id not in ms_outlook_instances:
                 ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-            if ms_outlook_index % 100 == 0:
-                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
-                gc.collect()
-        gc.collect()
+        # gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
         self.set_cache()
         return ms_outlook_instances
@@ -490,12 +490,24 @@ class MicrosoftOutlookConnector:
                                                                              0))
                 recurrence.Interval = int(ms_outlook_instance_body.get('recurrence_interval',
                                                                        1))
+                # FIX: restore DayOfWeekMask for weekly (type 1),
+                # monthly-nth (type 3), and yearly-nth (type 6) patterns
                 # FIX: restore DayOfWeekMask for weekly patterns so Outlook
                 # knows which days of the week the recurrence falls on
                 recurrence_day_of_week_mask = ms_outlook_instance_body.get('recurrence_day_of_week_mask')
                 if recurrence_day_of_week_mask is not None:
                     recurrence.DayOfWeekMask = int(recurrence_day_of_week_mask)
                 # FIX END
+                # FIX: restore Instance (BYSETPOS) for monthly-nth (type 3)
+                # and yearly-nth (type 6) — e.g. "3rd Thursday of the month"
+                recurrence_instance = ms_outlook_instance_body.get('recurrence_instance')
+                if recurrence_instance is not None:
+                    recurrence.Instance = int(recurrence_instance)
+                # FIX: restore MonthOfYear for yearly (type 5) and
+                # yearly-nth (type 6) patterns — e.g. November = 11
+                recurrence_month_of_year = ms_outlook_instance_body.get('recurrence_month_of_year')
+                if recurrence_month_of_year is not None:
+                    recurrence.MonthOfYear = int(recurrence_month_of_year)
                 recurrence.PatternStartDate = ms_outlook_appointment.Start
                 recurrence_end = ms_outlook_instance_body.get('recurrence_end')
                 if recurrence_end:
