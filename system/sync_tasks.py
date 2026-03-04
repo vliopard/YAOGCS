@@ -205,6 +205,7 @@ class SyncTask:
                                                           ms_outlook_current_event['StartUTC'],
                                                           ms_outlook_current_event['EndUTC'])
             master_pair = self.event_mapping.get_recurrent_pair(ms_outlook_current_id_string)
+            print_box(f'{line_number()} [Microsoft Outlook] [{ms_outlook_current_id_string}] => [{master_pair}]')
             if not master_pair:
                 calendar_event = CalendarInstance()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
