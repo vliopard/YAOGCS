@@ -42,8 +42,6 @@ class MicrosoftOutlookConnector:
         self.ms_outlook_data = MicrosoftOutlookHelper()
         self.ms_outlook_cache = None
         self.ms_outlook_cache_time = 0
-        self.ms_outlook_recurrences_cache = None
-        self.ms_outlook_recurrences_cache_time = 0
 
     def get_restriction(self,
                         ms_outlook_all_instances,
@@ -129,6 +127,7 @@ class MicrosoftOutlookConnector:
 
     def get_all_instances_ms_outlook(self):
         if self.ms_outlook_cache_time + 1800 < time.monotonic():
+            print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
             return self.ms_outlook_cache
 
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
@@ -196,8 +195,9 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instances
 
     def get_all_recurrences_ms_outlook(self):
-        if self.ms_outlook_recurrences_cache_time + 1800 < time.monotonic():
-            return self.ms_outlook_recurrences_cache
+        if self.ms_outlook_cache_time + 1800 < time.monotonic():
+            print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
+            return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
@@ -242,8 +242,8 @@ class MicrosoftOutlookConnector:
                 print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
                 gc.collect()
         gc.collect()
-        self.ms_outlook_recurrences_cache = ms_outlook_instances
-        self.ms_outlook_recurrences_cache_time = time.monotonic()
+        self.ms_outlook_cache = ms_outlook_instances
+        self.ms_outlook_cache_time = time.monotonic()
         return ms_outlook_instances
 
     def get_master_by_g_calendar_id(self,
