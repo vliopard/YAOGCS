@@ -489,7 +489,8 @@ def extract_date_full(text: str) -> str | None:
     year, month, day, hour, minute, second = match.groups()
     return f'{year}-{month}-{day}-{hour}-{minute}-{second}'
 
-def create_date_id(instance_id, instance_start, instance_end):
+
+def create_date_id(instance_id,
+                   instance_start):
     instance_date_start = strip_symbols(instance_start)
-    instance_date_end = strip_symbols(instance_end)
-    return f'{instance_id}{instance_date_start}{instance_date_end}'
+    return f'{instance_id}{instance_date_start}'

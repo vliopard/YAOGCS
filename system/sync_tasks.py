@@ -168,7 +168,7 @@ class SyncTask:
                     g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
                     if g_calendar_inserted_appointment:
                         g_calendar_master_id = g_calendar_inserted_appointment.get('id')
-                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] -> [{trim_id(g_calendar_master_id)}]')
+                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_master_id)}]')
                         self.event_mapping.insert_instance(ms_outlook_current_id,
                                                            g_calendar_master_id,
                                                            g_calendar_exported_event['summary'])
@@ -189,7 +189,7 @@ class SyncTask:
                     ms_outlook_inserted_appointment = self.ms_outlook_connection.insert_instance_ms_outlook(ms_outlook_exported_event)
                     if ms_outlook_inserted_appointment:
                         ms_outlook_event_id = ms_outlook_inserted_appointment.EntryID
-                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(g_calendar_event_id)}] -> [{trim_id(ms_outlook_event_id)}]')
+                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(g_calendar_event_id)}] => [{trim_id(ms_outlook_event_id)}]')
                         self.event_mapping.insert_instance(ms_outlook_event_id,
                                                            g_calendar_event_id,
                                                            ms_outlook_exported_event['Subject'])
@@ -227,8 +227,7 @@ class SyncTask:
                         g_calendar_instance_string = trim_id(g_calendar_instance['id'])
                         print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_current_id)}] [Microsoft Outlook] [{ms_outlook_instance_string}] <=> [Google Calendar] [{g_calendar_instance_string}]')
                         ms_outlook_instance_string = create_date_id(ms_outlook_instance['EntryID'],
-                                                                    ms_outlook_instance['StartUTC'],
-                                                                    ms_outlook_instance['EndUTC'])
+                                                                    ms_outlook_instance['StartUTC'])
                         print_box(f'{line_number()} [Microsoft Outlook] CREATE ID: [{ms_outlook_instance_string}]')
                         # TODO: OCCURRENCE IS RECURRENCE?
                         self.event_mapping.insert_occurrence(ms_outlook_current_id,
