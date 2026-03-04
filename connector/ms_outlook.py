@@ -71,11 +71,16 @@ class MicrosoftOutlookConnector:
             self.ms_outlook_cache_time = 0
             self.save_cache()
             return
-        with open(self.ms_outlook_cache_file,
-                  'r') as f:
-            data = json.load(f)
-            self.ms_outlook_cache_time = data.get('cache_time',
-                                                  0)
+        try:
+            with open(self.ms_outlook_cache_file,
+                      'r') as f:
+                data = json.load(f)
+                self.ms_outlook_cache_time = data.get('cache_time',
+                                                      0)
+        except (json.JSONDecodeError,
+                KeyError):
+            self.ms_outlook_cache_time = 0
+            self.save_cache()
 
     def get_restriction(self,
                         ms_outlook_all_instances,

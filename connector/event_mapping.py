@@ -22,7 +22,6 @@ class EventMapping:
     def __init__(self):
         base_dir = Path(__file__).resolve().parent.parent
         database_dir = (base_dir / 'resources' / 'database').resolve()
-
         self.event_map_file = str(database_dir / 'event_map.json')
         self._lock = Lock()
         self._ensure_directory()
@@ -45,7 +44,6 @@ class EventMapping:
     def _load_map(self) -> dict:
         if not os.path.exists(self.event_map_file):
             return self._get_default_structure()
-
         try:
             with open(self.event_map_file,
                       'r',
