@@ -1,4 +1,5 @@
 import gc
+import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -39,6 +40,10 @@ class MicrosoftOutlookHelper:
 class MicrosoftOutlookConnector:
     def __init__(self):
         self.ms_outlook_data = MicrosoftOutlookHelper()
+        self.ms_outlook_cache = None
+        self.ms_outlook_cache_time = 0
+        self.ms_outlook_recurrences_cache = None
+        self.ms_outlook_recurrences_cache_time = 0
 
     def get_restriction(self,
                         ms_outlook_all_instances,
@@ -123,6 +128,9 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instance_data
 
     def get_all_instances_ms_outlook(self):
+        if self.ms_outlook_cache_time + 1800 < time.monotonic():
+            return self.ms_outlook_cache
+
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
         ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
@@ -183,25 +191,43 @@ class MicrosoftOutlookConnector:
                 print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
                 gc.collect()
         gc.collect()
+        self.ms_outlook_cache = ms_outlook_instances
+        self.ms_outlook_cache_time = time.monotonic()
         return ms_outlook_instances
 
     def get_all_recurrences_ms_outlook(self):
+        if self.ms_outlook_recurrences_cache_time + 1800 < time.monotonic():
+            return self.ms_outlook_recurrences_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
         ms_outlook_selected_instances_length = ms_outlook_selected_instances.Count
         ms_outlook_instances = dict()
+        print_display(f'{line_number()} [Microsoft Outlook] Getting recurrences...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
+            ms_outlook_counter = f'{ms_outlook_index:,}/{ms_outlook_selected_instances_length:,}'
+            try:
+                parent_name = ms_outlook_instance.Parent.Name.lower()
+                deleted_folder_names = {'deleted items',
+                                        'itens excluídos',
+                                        'recoverable items',
+                                        'trash'}
+                if parent_name in deleted_folder_names:
+                    print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED ITEM: {ms_outlook_instance.Subject}')
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
+            except Exception:
+                pass
             try:
                 ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
+                ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
+                                                                             ms_outlook_properties)
             except Exception as exception:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — dir() - FAILED: [{exception}]')
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — dir() - FAILED: [{exception}]')
                 release_com_object_memory(ms_outlook_instance)
                 continue
-            ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
-                                                                         ms_outlook_properties)
-            if 'EntryID' not in ms_outlook_instance_data:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_index}/{ms_outlook_selected_instances_length}] — missing EntryID')
+            if 'EntryID' not in ms_outlook_instance_data or 'StartUTC' not in ms_outlook_instance_data:
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — missing EntryID/StartUTC')
                 release_com_object_memory(ms_outlook_instance)
                 continue
             if not ms_outlook_instance_data.get('IsRecurring',
@@ -213,8 +239,11 @@ class MicrosoftOutlookConnector:
                 ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
             if ms_outlook_index % 100 == 0:
+                print_display(f'{line_number()} [Microsoft Outlook] Processing items: [{ms_outlook_counter}]')
                 gc.collect()
         gc.collect()
+        self.ms_outlook_recurrences_cache = ms_outlook_instances
+        self.ms_outlook_recurrences_cache_time = time.monotonic()
         return ms_outlook_instances
 
     def get_master_by_g_calendar_id(self,
