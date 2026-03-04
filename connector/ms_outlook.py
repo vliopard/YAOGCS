@@ -1,4 +1,5 @@
 import gc
+import json
 import time
 from datetime import datetime
 from datetime import timedelta
@@ -42,6 +43,28 @@ class MicrosoftOutlookConnector:
         self.ms_outlook_data = MicrosoftOutlookHelper()
         self.ms_outlook_cache = None
         self.ms_outlook_cache_time = 0
+        self.load_cache()
+
+    def set_cache(self):
+        self.ms_outlook_cache_time = time.monotonic()
+        self.save_cache()
+
+    def get_cache(self):
+        return self.ms_outlook_cache_time
+
+    def save_cache(self):
+        with open('../resources/database/cache_time.json',
+                  'w') as f:
+            json.dump({
+                    'cache_time': self.ms_outlook_cache_time},
+                    f)
+
+    def load_cache(self):
+        with open('../resources/database/cache_time.json',
+                  'r') as f:
+            data = json.load(f)
+            self.ms_outlook_cache_time = data.get('cache_time',
+                                                  0)
 
     def get_restriction(self,
                         ms_outlook_all_instances,
@@ -128,7 +151,7 @@ class MicrosoftOutlookConnector:
     def get_all_instances_ms_outlook(self):
         if self.ms_outlook_cache_time + 1800 < time.monotonic():
             print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
-            return self.ms_outlook_cache
+            return self.get_cache()
 
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
@@ -191,13 +214,13 @@ class MicrosoftOutlookConnector:
                 gc.collect()
         gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
-        self.ms_outlook_cache_time = time.monotonic()
+        self.set_cache()
         return ms_outlook_instances
 
     def get_all_recurrences_ms_outlook(self):
         if self.ms_outlook_cache_time + 1800 < time.monotonic():
             print_display(f'{line_number()} [Microsoft Outlook] USING CACHE...')
-            return self.ms_outlook_cache
+            return self.get_cache()
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
@@ -243,7 +266,7 @@ class MicrosoftOutlookConnector:
                 gc.collect()
         gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
-        self.ms_outlook_cache_time = time.monotonic()
+        self.set_cache()
         return ms_outlook_instances
 
     def get_master_by_g_calendar_id(self,

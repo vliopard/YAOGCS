@@ -147,24 +147,29 @@ class EventMapping:
 
     def insert_instance(self,
                         ms_outlook_id: str,
-                        g_calendar_id: str) -> bool:
+                        g_calendar_id: str,
+                        instance_name: str = None) -> bool:
         with self._lock:
             single_events = self.event_map['single_events']
             if ms_outlook_id in single_events:
                 return False
             single_events[ms_outlook_id] = g_calendar_id
+            if instance_name:
+                self.event_map['single_events_meta'][ms_outlook_id] = f'[{instance_name}]'
             self._save_map()
             return True
 
     def insert_recurrence(self,
                           ms_outlook_master_id: str,
-                          g_calendar_master_id: str) -> bool:
+                          g_calendar_master_id: str,
+                          instance_name: str = None) -> bool:
         with self._lock:
             recurrent_events = self.event_map['recurrent_events']
             if ms_outlook_master_id in recurrent_events:
                 return False
             recurrent_events[ms_outlook_master_id] = {
                     'g_calendar_master_id': g_calendar_master_id,
+                    'instance_name'       : f'[{instance_name}]',
                     'instances'           : {}}
             self._save_map()
             return True
@@ -186,16 +191,21 @@ class EventMapping:
                         event_id: str) -> bool:
         with self._lock:
             single_events = self.event_map['single_events']
+            single_events_meta = self.event_map['single_events_meta']
             side = self._identify_side(event_id,
                                        single_events)
             if side == EventSide.MS_OUTLOOK:
                 del single_events[event_id]
+                single_events_meta.pop(event_id,
+                                       None)
                 self._save_map()
                 return True
             elif side == EventSide.G_CALENDAR:
                 for ms_outlook_id, g_calendar_id in single_events.items():
                     if g_calendar_id == event_id:
                         del single_events[ms_outlook_id]
+                        single_events_meta.pop(ms_outlook_id,
+                                               None)
                         self._save_map()
                         return True
             return False

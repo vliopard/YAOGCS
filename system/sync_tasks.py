@@ -169,7 +169,8 @@ class SyncTask:
                         g_calendar_master_id = g_calendar_inserted_appointment.get('id')
                         print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] -> [{trim_id(g_calendar_master_id)}]')
                         self.event_mapping.insert_instance(ms_outlook_current_id,
-                                                           g_calendar_master_id)
+                                                           g_calendar_master_id,
+                                                           g_calendar_exported_event['summary'])
 
     def copy_g_calendar_single_event_to_ms_outlook(self):
         print_display(f'{line_number()} Checking for new single events in [Google Calendar]...')
@@ -189,7 +190,8 @@ class SyncTask:
                         ms_outlook_event_id = ms_outlook_inserted_appointment.EntryID
                         print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(g_calendar_event_id)}] -> [{trim_id(ms_outlook_event_id)}]')
                         self.event_mapping.insert_instance(ms_outlook_event_id,
-                                                           g_calendar_event_id)
+                                                           g_calendar_event_id,
+                                                           ms_outlook_exported_event['Subject'])
 
     def copy_ms_outlook_recurrent_event_to_g_calendar(self):
         print_display(f'{line_number()} Checking for new recurrent events in [Microsoft Outlook]...')
@@ -209,7 +211,8 @@ class SyncTask:
                     g_calendar_master_id = get_master_id(g_calendar_id)
                     print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE MASTER: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
                     self.event_mapping.insert_recurrence(ms_outlook_current_id,
-                                                         g_calendar_id)
+                                                         g_calendar_id,
+                                                         g_calendar_exported_event['summary'])
                     ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
                     g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
                                                                                                                                                [])
@@ -253,7 +256,8 @@ class SyncTask:
                     ms_outlook_entry_id = ms_outlook_inserted_appointment.EntryID
                     print_display(f'{line_number()} 01-({g_calendar_total_items_progress}/{g_calendar_total_items_count}) [] ADDING RECURRENCE MASTER: [{trim_id(g_calendar_event_id)}] => [{trim_id(ms_outlook_entry_id)}]')
                     self.event_mapping.insert_recurrence(ms_outlook_entry_id,
-                                                         g_calendar_event_id)
+                                                         g_calendar_event_id,
+                                                         ms_outlook_exported_event['Subject'])
                     g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_event_id).get('items',
                                                                                                                                                      [])
                     ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_entry_id)
