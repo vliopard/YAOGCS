@@ -171,7 +171,7 @@ class MicrosoftOutlookConnector:
             return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances)
-        ms_outlook_selected_instances_length = len(ms_outlook_selected_instances)
+        ms_outlook_selected_instances_length = len(ms_outlook_all_instances)
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting instances...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
@@ -242,7 +242,7 @@ class MicrosoftOutlookConnector:
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_selected_instances = self.get_restriction(ms_outlook_all_instances,
                                                              False)
-        ms_outlook_selected_instances_length = len(ms_outlook_selected_instances)
+        ms_outlook_selected_instances_length = len(ms_outlook_all_instances)
         ms_outlook_instances = dict()
         print_display(f'{line_number()} [Microsoft Outlook] Getting recurrences...')
         for ms_outlook_index, ms_outlook_instance in enumerate(ms_outlook_selected_instances):
