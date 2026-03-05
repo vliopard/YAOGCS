@@ -359,8 +359,6 @@ def print_display(*arguments):
     if display_text == constants.DEFAULT_L:
         return
     if constants.RUN_GUI:
-        # if _gui_log_queue is not None:
-        #     _gui_log_queue.put(display_text)
         display_text = " ".join(map(str,
                                     arguments)).rstrip()
         logger = logging.getLogger('CalendarSync Logger')

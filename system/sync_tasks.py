@@ -26,27 +26,26 @@ class SyncTask:
         print_display(f'{line_number()} Cleared event mapping data...')
 
     def replicate_deletion_from_ms_outlook_to_g_calendar_single_event(self):
-        print_display(f'{line_number()} Checking for deleted single events in [Microsoft Outlook]...')
+        print_display(f'{line_number()} [Microsoft Outlook] 1) DELETE TO [Google Calendar] SINGLE')
         current_ms_outlook_events = self.ms_outlook_connection.get_all_instances_ms_outlook()
         ms_outlook_mapped_single_events = set(self.event_mapping.get_all_instances()['single_events'].keys()) - set(current_ms_outlook_events.keys())
         for ms_outlook_id in ms_outlook_mapped_single_events:
             event_pair = self.event_mapping.get_instance_pair(ms_outlook_id)
-            if event_pair:
-                google_event_id = event_pair[1]
-                google_event = self.g_calendar_connection.get_single_instance_g_calendar(google_event_id)
-                if not google_event:
-                    print_display(f'{line_number()} [Google Calendar] event [{trim_id(google_event_id)}] already deleted, cleaning mapping...')
+            if not event_pair:
+                continue
+            google_event_id = event_pair[1]
+            google_event = self.g_calendar_connection.get_single_instance_g_calendar(google_event_id)
+            if not google_event:
+                print_display(f'{line_number()} [Microsoft Outlook] 2) DELETE TO [Google Calendar] SINGLE [{trim_id(google_event_id)}] <= CLEANING MAP [{ms_outlook_id}]')
+                self.event_mapping.remove_instance(ms_outlook_id)
+                continue
+            if 'recurrence' not in google_event and 'recurringEventId' not in google_event:
+                try:
+                    print_display(f'{line_number()} [Microsoft Outlook] 3) DELETE TO [Google Calendar] SINGLE [{trim_id(google_event_id)}] <= DELETE [{ms_outlook_id}]')
+                    self.g_calendar_connection.g_calendar_delete_instance(google_event_id)
                     self.event_mapping.remove_instance(ms_outlook_id)
-                    continue
-                if 'recurrence' not in google_event and 'recurringEventId' not in google_event:
-                    print_display(f'{line_number()} Deleting [Google Calendar] single event [{trim_id(google_event_id)}] ([Microsoft Outlook] source deleted)')
-                    try:
-                        print_display(f'{line_number()} g_calendar_delete_event [{trim_id(google_event_id)}]')
-                        self.g_calendar_connection.g_calendar_delete_instance(google_event_id)
-                        print_display(f'{line_number()} remove_single_event [{trim_id(ms_outlook_id)}]')
-                        self.event_mapping.remove_instance(ms_outlook_id)
-                    except Exception as exception:
-                        print_display(f'{line_number()} Error deleting [Google Calendar] event: [{exception}]')
+                except Exception as exception:
+                    print_display(f'{line_number()} [Microsoft Outlook] 4) DELETE TO [Google Calendar] SINGLE - ERROR: [{exception}]')
 
     def replicate_deletion_from_g_calendar_to_ms_outlook_single_event(self):
         print_display(f'{line_number()} Checking for deleted single events in [Google Calendar]...')
@@ -98,29 +97,29 @@ class SyncTask:
                         print_display(f'{line_number()} Error deleting [Microsoft Outlook] instance: [{value_error}]')
 
     def replicate_deletion_of_single_event_from_ms_outlook_to_g_calendar_recurrent_event(self):
-        print_display(f'{line_number()} Checking for deleted recurrent events in [Microsoft Outlook]...')
+        print_display(f'{line_number()} [Microsoft Outlook] 1) DELETE TO [Google Calendar] SINGLE 2 RECURRENT')
         master_pair = self.event_mapping.get_all_instances()
         for ms_outlook_id in master_pair['recurrent_events']:
             for instance_event in master_pair['recurrent_events'][ms_outlook_id]['instances']:
                 g_calendar_id = master_pair['recurrent_events'][ms_outlook_id]['instances'][instance_event]
                 g_calendar_date_item = extract_date_full(g_calendar_id)
-                print_display(f'{line_number()} Detected deleted [Google Calendar] instance [{trim_id(g_calendar_id)}] with date ID [{g_calendar_date_item}]')
+                print_display(f'{line_number()} [Microsoft Outlook] 2) DELETE TO [Google Calendar] SINGLE 2 RECURRENT [{trim_id(g_calendar_id)}]/[{g_calendar_date_item}] <= DELETE [{ms_outlook_id}]')
                 try:
                     g_calendar_id_master = get_master_id(g_calendar_id)
                     result = self.ms_outlook_connection.get_occurrence_by_g_calendar_master_and_start(g_calendar_id_master,
                                                                                                       g_calendar_date_item)
                     if not result:
-                        print_display(f'{line_number()} Deleting [Google Calendar] instance [{trim_id(g_calendar_id)}] ([Microsoft Outlook] instance [{trim_id(ms_outlook_id)}] was deleted)')
+                        print_display(f'{line_number()} [Microsoft Outlook] 3) DELETE TO [Google Calendar] SINGLE 2 RECURRENT [{trim_id(g_calendar_id)}]/[{g_calendar_date_item}] <= DELETE [{ms_outlook_id}]')
                         g_calendar_delete = self.g_calendar_connection.g_calendar_delete_instance(g_calendar_id)
                         if g_calendar_delete != 'Failed':
-                            print_display(f'{line_number()} Successfully deleted [Google Calendar] instance')
+                            print_display(f'{line_number()} [Microsoft Outlook] 4) DELETE TO [Google Calendar] SINGLE 2 RECURRENT [{trim_id(g_calendar_id)}]/[{g_calendar_date_item}] <= DELETED! [{ms_outlook_id}]')
                             self.event_mapping.remove_generic_occurrence(g_calendar_id)
-                            print_display(f'{line_number()} Deleted instance in mapping...')
+                            print_display(f'{line_number()} [Microsoft Outlook] 5) DELETE TO [Google Calendar] SINGLE 2 RECURRENT [{trim_id(g_calendar_id)}]/[{g_calendar_date_item}] <= MAP DELETED! [{ms_outlook_id}]')
                 except ValueError as value_error:
-                    print_display(f'{line_number()} Error deleting [Microsoft Outlook] instance: {value_error}')
+                    print_display(f'{line_number()} [Microsoft Outlook] 6) DELETE TO [Google Calendar] SINGLE 2 RECURRENT - ERROR: [{value_error}]')
 
     def replicate_deletion_from_ms_outlook_to_g_calendar_recurrent_event(self):
-        print_display(f'{line_number()} Checking for deleted recurrent event in [Microsoft Outlook]...')
+        print_display(f'{line_number()} [Microsoft Outlook] 1) DELETE TO [Google Calendar] RECURRENT')
         recurrent_events = self.event_mapping.get_all_instances()['recurrent_events']
         for ms_outlook_master_id, master_data in recurrent_events.items():
             g_calendar_id = master_data['g_calendar_master_id']
@@ -130,9 +129,9 @@ class SyncTask:
             ms_outlook_master_id_item = convert_com_object_to_dictionary(ms_outlook_instance_exists)
             if not ms_outlook_master_id_item and g_calendar_instance_exists['status'] != 'cancelled':
                 self.g_calendar_connection.g_calendar_delete_instance(g_calendar_id)
-                print_display(f'{line_number()} Successfully deleted [Google Calendar] instance')
+                print_display(f'{line_number()} [Microsoft Outlook] 2) DELETE TO [Google Calendar] RECURRENT [{trim_id(g_calendar_id)}] <= DELETED!')
                 self.event_mapping.remove_g_calendar_recurrence(g_calendar_master_id)
-                print_display(f'{line_number()} Deleted instance in mapping')
+                print_display(f'{line_number()} [Microsoft Outlook] 3) DELETE TO [Google Calendar] RECURRENT [{trim_id(g_calendar_id)}] <= MAP DELETED!')
 
     def replicate_deletion_from_g_calendar_to_ms_outlook_recurrent_event(self):
         print_display(f'{line_number()} Checking for deleted recurrent event in [Google Calendar]...')
@@ -156,23 +155,27 @@ class SyncTask:
 
     def copy_ms_outlook_single_event_to_g_calendar(self):
         print_display(f'{line_number()} Checking for new single events in [Microsoft Outlook]...')
+        print_display(f'{line_number()} [Microsoft Outlook] 1) COPY TO [Google Calendar] SINGLE')
         ms_outlook_events = self.ms_outlook_connection.get_all_instances_ms_outlook()
         for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
                 single_pair = self.event_mapping.get_instance_pair(recover_date_id(ms_outlook_current_id))
-                if not single_pair:
-                    calendar_event = CalendarInstance()
-                    calendar_event.import_ms_outlook(ms_outlook_current_event)
-                    g_calendar_exported_event = calendar_event.export_g_calendar()
-                    print_display(f'{line_number()} [Microsoft Outlook] INSERTING EVENT: [{trim_id(ms_outlook_current_id)}]')
-                    g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
-                    if g_calendar_inserted_appointment:
-                        g_calendar_master_id = g_calendar_inserted_appointment.get('id')
-                        print_display(f'{line_number()} [Microsoft Outlook] ADDING EVENT: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_master_id)}]')
-                        self.event_mapping.insert_instance(recover_date_id(ms_outlook_current_id),
-                                                           g_calendar_master_id,
-                                                           g_calendar_exported_event['summary'])
+                if single_pair:
+                    continue
+                calendar_event = CalendarInstance()
+                calendar_event.import_ms_outlook(ms_outlook_current_event)
+                g_calendar_exported_event = calendar_event.export_g_calendar()
+                print_display(f'{line_number()} [Microsoft Outlook] 2) COPY TO [Google Calendar] SINGLE [{trim_id(ms_outlook_current_id)}]')
+                g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
+                if not g_calendar_inserted_appointment:
+                    print_display(f'{line_number()} [Microsoft Outlook] 3) COPY TO [Google Calendar] SINGLE - ERROR: [NO APPOINTMENT CREATED]')
+                    continue
+                g_calendar_master_id = g_calendar_inserted_appointment.get('id')
+                print_display(f'{line_number()} [Microsoft Outlook] 4) COPY TO [Google Calendar] SINGLE [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_master_id)}]')
+                self.event_mapping.insert_instance(recover_date_id(ms_outlook_current_id),
+                                                   g_calendar_master_id,
+                                                   g_calendar_exported_event['summary'])
 
     def copy_g_calendar_single_event_to_ms_outlook(self):
         print_display(f'{line_number()} Checking for new single events in [Google Calendar]...')
@@ -196,44 +199,47 @@ class SyncTask:
                                                            ms_outlook_exported_event['Subject'])
 
     def copy_ms_outlook_recurrent_event_to_g_calendar(self):
-        print_display(f'{line_number()} Checking for new recurrent events in [Microsoft Outlook]...')
+        print_display(f'{line_number()} [Microsoft Outlook] 1) COPY TO [Google Calendar] RECURRENT')
         ms_outlook_events = self.ms_outlook_connection.get_all_recurrences_ms_outlook()
         for ms_outlook_current_id, ms_outlook_current_event in ms_outlook_events.items():
             if not ms_outlook_current_event.get('IsRecurring',
                                                 False):
                 continue
             master_pair = self.event_mapping.get_recurrent_pair(recover_date_id(ms_outlook_current_id))
-            print_box(f'{line_number()} [Microsoft Outlook] [{ms_outlook_current_id}] => [{master_pair}]')
+            print_display(f'{line_number()} [Microsoft Outlook] 2) COPY TO [Google Calendar] RECURRENT [{trim_id(ms_outlook_current_id)}] => [{master_pair}]')
             if not master_pair:
                 calendar_event = CalendarInstance()
                 calendar_event.import_ms_outlook(ms_outlook_current_event)
                 g_calendar_exported_event = calendar_event.export_g_calendar()
                 g_calendar_inserted_appointment = self.g_calendar_connection.g_calendar_insert_instance(g_calendar_exported_event)
-                if g_calendar_inserted_appointment:
-                    g_calendar_id = g_calendar_inserted_appointment.get('id')
-                    g_calendar_master_id = get_master_id(g_calendar_id)
-                    print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE MASTER: [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
-                    self.event_mapping.insert_recurrence(recover_date_id(ms_outlook_current_id),
-                                                         g_calendar_id,
-                                                         g_calendar_exported_event['summary'])
-                    ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
-                    g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
-                                                                                                                                               [])
-                    self.ms_outlook_connection.set_recurrence_id(recover_date_id(ms_outlook_current_id),
-                                                                 g_calendar_master_id)
-                    for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
-                                                                        sort_json_list(g_calendar_instances,
-                                                                                       'start.dateTime')):
-                        ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
-                        g_calendar_instance_string = trim_id(g_calendar_instance['id'])
-                        print_display(f'{line_number()} [Google Calendar] ADDING RECURRENCE INSTANCE: [{trim_id(ms_outlook_current_id)}] [Microsoft Outlook] [{ms_outlook_instance_string}] <=> [Google Calendar] [{g_calendar_instance_string}]')
-                        ms_outlook_instance_string = create_date_id(ms_outlook_instance['EntryID'],
-                                                                    ms_outlook_instance['StartUTC'])
-                        print_box(f'{line_number()} [Microsoft Outlook] CREATE ID: [{ms_outlook_instance_string}]')
-                        # TODO: OCCURRENCE IS RECURRENCE?
-                        self.event_mapping.insert_occurrence(recover_date_id(ms_outlook_current_id),
-                                                             ms_outlook_instance_string,
-                                                             g_calendar_instance['id'])
+                if not g_calendar_inserted_appointment:
+                    print_display(f'{line_number()} [Microsoft Outlook] 3) COPY TO [Google Calendar] RECURRENT - ERROR: [NO APPOINTMENT CREATED]')
+                    continue
+
+                g_calendar_id = g_calendar_inserted_appointment.get('id')
+                g_calendar_master_id = get_master_id(g_calendar_id)
+                print_display(f'{line_number()} [Microsoft Outlook] 4) COPY TO [Google Calendar] RECURRENT [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}]')
+                self.event_mapping.insert_recurrence(recover_date_id(ms_outlook_current_id),
+                                                     g_calendar_id,
+                                                     g_calendar_exported_event['summary'])
+                ms_outlook_instances = self.ms_outlook_connection.get_recurrence_instances(ms_outlook_current_id)
+                g_calendar_instances = self.g_calendar_connection.get_all_single_instances_inside_recurrence_g_calendar(g_calendar_id).get('items',
+                                                                                                                                           [])
+                self.ms_outlook_connection.set_recurrence_id(recover_date_id(ms_outlook_current_id),
+                                                             g_calendar_master_id)
+                for ms_outlook_instance, g_calendar_instance in zip(ms_outlook_instances,
+                                                                    sort_json_list(g_calendar_instances,
+                                                                                   'start.dateTime')):
+                    ms_outlook_instance_string = trim_id(ms_outlook_instance['EntryID'])
+                    g_calendar_instance_string = trim_id(g_calendar_instance['id'])
+                    print_display(f'{line_number()} [Microsoft Outlook] 5) COPY TO [Google Calendar] RECURRENT [{trim_id(ms_outlook_current_id)}] => [{trim_id(g_calendar_id)}] / [{ms_outlook_instance_string}] <=> [{g_calendar_instance_string}]')
+                    ms_outlook_instance_string = create_date_id(ms_outlook_instance['EntryID'],
+                                                                ms_outlook_instance['StartUTC'])
+                    print_display(f'{line_number()} [Microsoft Outlook] 6) COPY TO [Google Calendar] RECURRENT - CREATE ID: [{ms_outlook_instance_string}]')
+                    # TODO: OCCURRENCE IS RECURRENCE?
+                    self.event_mapping.insert_occurrence(recover_date_id(ms_outlook_current_id),
+                                                         ms_outlook_instance_string,
+                                                         g_calendar_instance['id'])
 
     def copy_g_calendar_recurrent_event_to_ms_outlook(self):
         print_display(f'{line_number()} Checking for new recurrent events in [Google Calendar]...')
