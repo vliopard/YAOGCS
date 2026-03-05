@@ -26,11 +26,12 @@ class SyncTask:
         print_display(f'{line_number()} Cleared event mapping data...')
 
     def replicate_deletion_from_ms_outlook_to_g_calendar_single_event(self):
-        print_display(f'{line_number()} [Microsoft Outlook] 1) DELETE TO [Google Calendar] SINGLE')
+        print_display(f'{line_number()} [Microsoft Outlook] 0) DELETE TO [Google Calendar] SINGLE')
         current_ms_outlook_events = self.ms_outlook_connection.get_all_instances_ms_outlook()
-        ms_outlook_mapped_single_events = set(self.event_mapping.get_all_instances()['single_events'].keys()) - set(current_ms_outlook_events.keys())
+        ms_outlook_mapped_single_events = set(self.event_mapping.get_all_instances()['single_events'].keys()) - {recover_date_id(k) for k in current_ms_outlook_events.keys()}
         for ms_outlook_id in ms_outlook_mapped_single_events:
             event_pair = self.event_mapping.get_instance_pair(ms_outlook_id)
+            print_display(f'{line_number()} [Microsoft Outlook] 1) DELETE TO [Google Calendar] SINGLE [{ms_outlook_id}] Event Pair: [{event_pair}]')
             if not event_pair:
                 continue
             google_event_id = event_pair[1]
