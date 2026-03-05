@@ -86,3 +86,5 @@ SYMBOL_BLANK = ' '
 
 DAY_PAST = 18
 DAY_NEXT = 180
+INTERVAL_OBSERVER = 280  # 4.66 minutes in seconds
+INTERVAL_SYNC_JOB = 60 * 60 * 2  # 60 sec * 60 min * 2 hours

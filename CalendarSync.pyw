@@ -20,6 +20,8 @@ from PIL import ImageDraw
 from pystray import MenuItem as Item
 
 import system.constants as constants
+from system.constants import INTERVAL_OBSERVER
+from system.constants import INTERVAL_SYNC_JOB
 from system.sync_tasks import SyncTask
 from system.tools import line_number
 from system.tools import print_display
@@ -42,8 +44,6 @@ sys.path.insert(0,
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-INTERVAL_OBSERVER = 280  # 5 minutes in seconds
-INTERVAL_SYNC_JOB = 1800  # 30 minutes in seconds
 ANIM_FRAMES = 8  # animation frames for spinning arc
 
 APP_NAME = 'CalendarSync'

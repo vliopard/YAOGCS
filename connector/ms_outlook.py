@@ -178,7 +178,7 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instance_data
 
     def get_all_instances_ms_outlook(self):
-        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + 1800:
+        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + constants.INTERVAL_SYNC_JOB:
             print_box(f'{line_number()} [Microsoft Outlook] USING CACHE...')
             return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
@@ -244,7 +244,7 @@ class MicrosoftOutlookConnector:
         return ms_outlook_instances
 
     def get_all_recurrences_ms_outlook(self):
-        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + 1800:
+        if self.ms_outlook_cache is not None and self.ms_outlook_cache_time != 0 and time.monotonic() < self.ms_outlook_cache_time + constants.INTERVAL_SYNC_JOB:
             print_box(f'{line_number()} [Microsoft Outlook] USING CACHE...')
             return self.ms_outlook_cache
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
