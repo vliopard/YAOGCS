@@ -22,6 +22,8 @@ from pystray import MenuItem as Item
 import system.constants as constants
 from system.constants import INTERVAL_OBSERVER
 from system.constants import INTERVAL_SYNC_JOB
+from system.settings_screen import load_runtime_settings
+from system.settings_screen import open_settings
 from system.sync_tasks import SyncTask
 from system.tools import line_number
 from system.tools import print_display
@@ -37,6 +39,7 @@ constants.RUN_GUI = True
 if constants.RUN_GUI:
     sys.stdout = _log_file
     sys.stderr = _log_file
+load_runtime_settings()
 
 sys.path.insert(0,
                 _base)
@@ -819,6 +822,11 @@ def on_quit(icon,
                root.destroy)
 
 
+def on_settings(icon,
+                item):  # <-- add this tiny callback
+    open_settings(root)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -830,6 +838,9 @@ def main():
                              on_log_viewer),
                         Item('Clear Log',
                              on_clear_log),
+                        pystray.Menu.SEPARATOR,
+                        Item('Settings',
+                             on_settings),
                         pystray.Menu.SEPARATOR,
                         Item('About',
                              on_about),
