@@ -14,11 +14,27 @@ from system.tools import sort_json_list
 from system.tools import strip_symbols
 from system.tools import trim_id
 
+# FIX: keep a single MicrosoftOutlookConnector alive for the lifetime of the
+# process.  The original code constructed a new instance inside SyncTask.__init__
+# on every sync cycle, which discarded the in-memory cache immediately and
+# forced a full Outlook re-query every run.  A module-level singleton means the
+# cache (and its cache_time) persists between cycles exactly as intended.
+_ms_outlook_connector: MicrosoftOutlookConnector | None = None
+
+
+def _get_ms_outlook_connector() -> MicrosoftOutlookConnector:
+    global _ms_outlook_connector
+    if _ms_outlook_connector is None:
+        _ms_outlook_connector = MicrosoftOutlookConnector()
+    return _ms_outlook_connector
+
 
 class SyncTask:
     def __init__(self):
         self.event_mapping = EventMapping()
-        self.ms_outlook_connection = MicrosoftOutlookConnector()
+        # FIX: reuse the module-level singleton instead of creating a fresh
+        # connector (and throwing away the warm cache) on every sync cycle.
+        self.ms_outlook_connection = _get_ms_outlook_connector()
         self.g_calendar_connection = GoogleCalendarConnector(event_mapping=self.event_mapping)
 
     def clear_map(self):

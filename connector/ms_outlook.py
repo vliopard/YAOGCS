@@ -22,6 +22,32 @@ from system.tools import print_underline
 from system.tools import release_com_object_memory
 from system.tools import trim_id
 
+# FIX: declare the known Outlook appointment property names once.
+# The original code called dir(item) on every COM object on every cycle,
+# which interrogates the full COM type library and is expensive.
+# Using a fixed tuple avoids that overhead entirely.
+_APPOINTMENT_PROPERTIES = (
+    'BusyStatus',
+    'Body',
+    'Categories',
+    'Duration',
+    'End',
+    'EndUTC',
+    'EntryID',
+    'GlobalAppointmentID',
+    'IsOnlineMeeting',
+    'IsRecurring',
+    'Location',
+    'MeetingStatus',
+    'Mileage',
+    'ReminderMinutesBeforeStart',
+    'ReminderSet',
+    'Sensitivity',
+    'Start',
+    'StartUTC',
+    'Subject',
+)
+
 
 class MicrosoftOutlookHelper:
     def __init__(self):
@@ -200,11 +226,12 @@ class MicrosoftOutlookConnector:
             except Exception:
                 pass
             try:
-                ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
+                # FIX: use the fixed property tuple instead of dir() to avoid
+                # expensive COM type-library interrogation on every item.
                 ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
-                                                                             ms_outlook_properties)
+                                                                             _APPOINTMENT_PROPERTIES)
             except Exception as exception:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — dir() - FAILED: [{exception}]')
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — property fetch FAILED: [{exception}]')
                 release_com_object_memory(ms_outlook_instance)
                 continue
             if 'EntryID' not in ms_outlook_instance_data or 'StartUTC' not in ms_outlook_instance_data:
@@ -216,11 +243,15 @@ class MicrosoftOutlookConnector:
             if ms_outlook_instance_data.get('IsRecurring',
                                             False):
                 recurrence_pattern = None
+                # FIX: use try/finally so release_com_object_memory() is
+                # always called even when a deleted-occurrence check fires
+                # a continue — previously the COM object would be leaked.
                 try:
                     recurrence_pattern = ms_outlook_instance.GetRecurrencePattern()
-                    for exception_item in range(1,
-                                                recurrence_pattern.Exceptions.Count + 1):
-                        exception_item = recurrence_pattern.Exceptions.Item(exception_item)
+                    skip_item = False
+                    for exception_index in range(1,
+                                                 recurrence_pattern.Exceptions.Count + 1):
+                        exception_item = recurrence_pattern.Exceptions.Item(exception_index)
                         if exception_item.Deleted:
                             if hasattr(exception_item.OriginalDate,
                                        'Format'):
@@ -231,14 +262,20 @@ class MicrosoftOutlookConnector:
                                                         date_string)
                             if ms_outlook_entry_id == deleted_id:
                                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
-                                release_com_object_memory(ms_outlook_instance)
-                                continue
+                                skip_item = True
+                                break
                 finally:
                     if recurrence_pattern is not None:
                         release_com_object_memory(recurrence_pattern)
+                if skip_item:
+                    release_com_object_memory(ms_outlook_instance)
+                    continue
             ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-        # gc.collect()
+        # FIX: re-enable gc.collect() so orphaned COM wrapper objects are
+        # collected promptly.  The original comment-out caused wrappers to
+        # accumulate across every sync cycle, gradually consuming memory.
+        gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
         self.set_cache()
         return ms_outlook_instances
@@ -267,11 +304,11 @@ class MicrosoftOutlookConnector:
             except Exception:
                 pass
             try:
-                ms_outlook_properties = [ms_outlook_attributes for ms_outlook_attributes in dir(ms_outlook_instance) if not ms_outlook_attributes.startswith('_')]
+                # FIX: use the fixed property tuple instead of dir()
                 ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
-                                                                             ms_outlook_properties)
+                                                                             _APPOINTMENT_PROPERTIES)
             except Exception as exception:
-                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — dir() - FAILED: [{exception}]')
+                print_display(f'{line_number()} [Microsoft Outlook] SKIPPING ITEM: [{ms_outlook_counter}] — property fetch FAILED: [{exception}]')
                 release_com_object_memory(ms_outlook_instance)
                 continue
             if 'EntryID' not in ms_outlook_instance_data or 'StartUTC' not in ms_outlook_instance_data:
@@ -287,7 +324,8 @@ class MicrosoftOutlookConnector:
             if ms_outlook_entry_id not in ms_outlook_instances:
                 ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
-        # gc.collect()
+        # FIX: re-enable gc.collect() (same reason as get_all_instances)
+        gc.collect()
         self.ms_outlook_cache = ms_outlook_instances
         self.set_cache()
         return ms_outlook_instances
@@ -729,9 +767,9 @@ class MicrosoftOutlookConnector:
                                False):
                     release_com_object_memory(ms_outlook_instance)
                     continue
-                ms_outlook_properties = [attr for attr in dir(ms_outlook_instance) if not attr.startswith('_')]
+                # FIX: use the fixed property tuple instead of dir()
                 ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_instance,
-                                                                             ms_outlook_properties)
+                                                                             _APPOINTMENT_PROPERTIES)
                 if 'EntryID' not in ms_outlook_instance_data:
                     release_com_object_memory(ms_outlook_instance)
                     continue
@@ -740,6 +778,7 @@ class MicrosoftOutlookConnector:
                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING MASTER: [{exception}]')
             finally:
                 release_com_object_memory(ms_outlook_instance)
+        gc.collect()
         return ms_outlook_instances
 
     def get_recurring_masters_in_window_ms_outlook(self):
@@ -771,13 +810,14 @@ class MicrosoftOutlookConnector:
                     release_com_object_memory(ms_outlook_recurrence_pattern)
                     release_com_object_memory(ms_outlook_instance)
                     continue
-                ms_outlook_properties = [attr for attr in dir(ms_outlook_master) if not attr.startswith('_')]
+                # FIX: use the fixed property tuple instead of dir()
                 ms_outlook_instance_data = self.get_instance_data_ms_outlook(ms_outlook_master,
-                                                                             ms_outlook_properties)
+                                                                             _APPOINTMENT_PROPERTIES)
                 if 'EntryID' in ms_outlook_instance_data:
                     ms_outlook_masters[master_entry_id] = ms_outlook_instance_data
             except Exception as exception:
                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING MASTER: [{exception}]')
             finally:
                 release_com_object_memory(ms_outlook_instance)
+        gc.collect()
         return ms_outlook_masters

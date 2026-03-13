@@ -80,6 +80,9 @@ class ListHandler(logging.Handler):
              record):
         line = self.format(record)
         log_lines.append(line)
+        # FIX: trim the oldest entries whenever the list exceeds the cap
+        if len(log_lines) > MAX_LOG_LINES:
+            del log_lines[:len(log_lines) - MAX_LOG_LINES]
         for call_back in list(log_callbacks):
             try:
                 call_back(line)
