@@ -249,7 +249,14 @@ class EventMapping:
         with self._lock:
             print_box(f'{line_number()} [EVENT MAPPING] removing generic: [{generic_instance_id}]')
             recurrent_events = self.event_map['recurrent_events']
-            for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
+            #for ms_outlook_master_id, ms_outlook_data in recurrent_events.items():
+            # BUG A FIX: iterating recurrent_events.items() while deleting a
+            # master key inside the loop raises RuntimeError in Python 3.
+            # Snapshot the keys first so mutation is safe.
+            for ms_outlook_master_id in list(recurrent_events.keys()):
+                ms_outlook_data = recurrent_events.get(ms_outlook_master_id)
+                if ms_outlook_data is None:
+                    continue
                 ms_outlook_instances = ms_outlook_data['instances']
                 side = self._identify_side(generic_instance_id,
                                            ms_outlook_instances)

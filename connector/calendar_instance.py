@@ -161,10 +161,17 @@ class CalendarInstance:
         '''
         if 'recurrence' in g_calendar_event:
             self.shared_recurrence = g_calendar_event['recurrence'][0]
+        # BUG B FIX: the original code used .get('overrides', [{}])[0] which
+        # raises IndexError when the API returns overrides as an explicitly
+        # empty list [].  Extract the list first and index only when non-empty.
+        overrides = g_calendar_event.get('reminders', {}).get('overrides', [])
+        self.shared_reminder_minutes = overrides[0].get('minutes', 15) if overrides else 15
+        '''
         self.shared_reminder_minutes = (g_calendar_event.get('reminders',
                                                              {}).get('overrides',
                                                                      [{}])[0].get('minutes',
                                                                                   15))
+        '''
         self.shared_visibility = g_calendar_event.get('visibility',
                                                       'public')
         self.shared_status = g_calendar_event.get('status',

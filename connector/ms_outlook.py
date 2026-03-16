@@ -109,6 +109,13 @@ class MicrosoftOutlookConnector:
             self.ms_outlook_cache_time = 0
             self.save_cache()
 
+    def _invalidate_cache(self):
+        '''BUG I FIX: called after any write operation (insert / update / delete)
+        so the next read fetches fresh data instead of returning stale results
+        that are missing the just-written change.'''
+        self.ms_outlook_cache = None
+        self.ms_outlook_cache_time = 0
+
     def get_restriction(self,
                         ms_outlook_all_instances,
                         include_recurrences=True):
@@ -130,20 +137,41 @@ class MicrosoftOutlookConnector:
     def get_occurrence_ms_outlook(self,
                                   ms_outlook_instance_id,
                                   ms_outlook_start_date):
+        # BUG D FIX: the original code retrieved ms_outlook_appointment and
+        # ms_outlook_recurrence but never released them when an early return
+        # or exception occurred.  Use try/finally to guarantee release of both
+        # COM objects regardless of the exit path.
+        ms_outlook_appointment = None
+        ms_outlook_recurrence = None
         try:
             ms_outlook_appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
             if not ms_outlook_appointment:
                 return None
-            if not ms_outlook_appointment.IsRecurring:
+
+            # if not ms_outlook_appointment.IsRecurring:
+            if not ms_outlook_appointment.get('IsRecurring'):
                 return None
+            '''
             ms_outlook_recurrence = ms_outlook_appointment.GetRecurrencePattern()
             ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(datetime.strptime(ms_outlook_start_date,
                                                                                           '%Y-%m-%d'))
+            '''
+            # Re-fetch the raw COM object to call GetRecurrencePattern — the
+            # dict returned by get_item_ms_outlook is not a COM object.
+            ms_outlook_raw = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
+            ms_outlook_recurrence = ms_outlook_raw.GetRecurrencePattern()
+            ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(
+                datetime.strptime(ms_outlook_start_date, '%Y-%m-%d'))
             return convert_com_object_to_dictionary(ms_outlook_occurrence)
         except (pywintypes.com_error,
                 AttributeError) as com_error_type:
             print_display(f'{line_number()} [Microsoft Outlook] COM ERROR: {com_error_type}')
             return None
+        finally:
+            if ms_outlook_recurrence is not None:
+                release_com_object_memory(ms_outlook_recurrence)
+            if ms_outlook_appointment is not None:
+                release_com_object_memory(ms_outlook_appointment)
 
     def get_instance_data_ms_outlook(self,
                                      ms_outlook_instance,
@@ -436,6 +464,8 @@ class MicrosoftOutlookConnector:
 
     def insert_instance_ms_outlook(self,
                                    ms_outlook_instance_body):
+        # BUG I FIX: invalidate cache so the next read reflects this new event.
+        self._invalidate_cache()
         try:
             print_display(f'{line_number()} [Microsoft Outlook] INSERT <<==')
             ms_outlook_appointment = self.ms_outlook_data.ms_outlook_create_item()
@@ -575,6 +605,8 @@ class MicrosoftOutlookConnector:
     def update_instance_ms_outlook(self,
                                    ms_outlook_instance_id,
                                    ms_outlook_instance_body):
+        # BUG I FIX: invalidate cache so the next read reflects this update.
+        self._invalidate_cache()
         try:
             print_display(f'{line_number()} [Microsoft Outlook] UPDATE <<==')
             ms_outlook_appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
@@ -674,6 +706,8 @@ class MicrosoftOutlookConnector:
 
     def delete_instance_ms_outlook(self,
                                    ms_outlook_instance_id):
+        # BUG I FIX: invalidate cache so the next read reflects this deletion.
+        self._invalidate_cache()
         try:
             print_display(f'{line_number()} DELETE <<==')
             ms_outlook_instance = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
@@ -688,6 +722,9 @@ class MicrosoftOutlookConnector:
     def delete_occurrence_ms_outlook(self,
                                      ms_outlook_instance_id,
                                      ms_outlook_instance_body):
+        # BUG I FIX: invalidate cache so the deleted occurrence is not returned
+        # on the next read.
+        self._invalidate_cache()
         try:
             print_display(f'{line_number()} [Microsoft Outlook] DELETE INSIDE RECURRENCE <<==')
             appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
@@ -707,6 +744,8 @@ class MicrosoftOutlookConnector:
     def delete_occurrence_by_g_calendar_master_and_start(self,
                                                          g_calendar_master_id: str,
                                                          start_utc: str):
+        # BUG I FIX: invalidate cache on occurrence deletion.
+        self._invalidate_cache()
         try:
             utc_dt = datetime.strptime(start_utc,
                                        '%Y-%m-%d-%H-%M-%S').replace(tzinfo=timezone.utc)
@@ -736,6 +775,8 @@ class MicrosoftOutlookConnector:
     def delete_occurrence_by_g_calendar_master_and_start_utc(self,
                                                              g_calendar_master_id: str,
                                                              start_utc: datetime):
+        # BUG I FIX: invalidate cache on occurrence deletion.
+        self._invalidate_cache()
         local_dt = start_utc.astimezone()
         master = self.get_master_by_g_calendar_id(g_calendar_master_id)
         if not master:

@@ -1,5 +1,6 @@
 # CalendarSync.pyw - Run with pythonw.exe (no console window)
 # Dependencies: pip install pystray pillow
+import configparser
 import ctypes
 import json
 import logging
@@ -56,6 +57,39 @@ APP_AUTHOR = 'Vincent Liopard.'
 APP_COMPANY = 'OTDS H Co.'
 
 # ---------------------------------------------------------------------------
+# BUG G FIX: Load MAX_LOG_LINES from ini file with a safe fallback default.
+# Previously MAX_LOG_LINES was never defined, causing NameError at runtime.
+# ---------------------------------------------------------------------------
+_INI_PATH = os.path.join(_base, 'resources', 'database', 'calendarsync.ini')
+
+def _load_ini_int(section, key, fallback):
+    cfg = configparser.ConfigParser()
+    cfg.read(_INI_PATH, encoding='utf-8')
+    try:
+        return cfg.getint(section, key, fallback=fallback)
+    except (ValueError, configparser.Error):
+        return fallback
+
+def _ensure_ini_defaults():
+    '''Write ini file with defaults if the file or key is missing.'''
+    cfg = configparser.ConfigParser()
+    cfg.read(_INI_PATH, encoding='utf-8')
+    changed = False
+    if not cfg.has_section('logging'):
+        cfg.add_section('logging')
+        changed = True
+    if not cfg.has_option('logging', 'max_log_lines'):
+        cfg.set('logging', 'max_log_lines', '1000')
+        changed = True
+    if changed:
+        os.makedirs(os.path.dirname(_INI_PATH), exist_ok=True)
+        with open(_INI_PATH, 'w', encoding='utf-8') as f:
+            cfg.write(f)
+
+_ensure_ini_defaults()
+MAX_LOG_LINES = _load_ini_int('logging', 'max_log_lines', 1000)
+
+# ---------------------------------------------------------------------------
 # Global Tkinter root (created on main thread)
 # ---------------------------------------------------------------------------
 root = tk.Tk()
@@ -74,15 +108,13 @@ stop_event = threading.Event()
 log_lines = []
 log_callbacks = []
 
-MAX_LOG_LINES = 1000
-
 
 class ListHandler(logging.Handler):
     def emit(self,
              record):
         line = self.format(record)
         log_lines.append(line)
-        # FIX: trim the oldest entries whenever the list exceeds the cap
+        # trim the oldest entries whenever the list exceeds the cap
         if len(log_lines) > MAX_LOG_LINES:
             del log_lines[:len(log_lines) - MAX_LOG_LINES]
         for call_back in list(log_callbacks):
@@ -152,9 +184,9 @@ def save_settings():
         os.makedirs(os.path.dirname(SETTINGS_FILE),
                     exist_ok=True)
         with open(SETTINGS_FILE,
-                  "w") as f:
+                  'w') as f:
             json.dump({
-                    "viewer_geom": _viewer_geom},
+                    'viewer_geom': _viewer_geom},
                     f)
     except Exception:
         pass
@@ -165,10 +197,10 @@ def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE,
-                      "r") as f:
+                      'r') as f:
                 data = json.load(f)
                 # Use .get() with a fallback default string
-                return data.get("viewer_geom",
+                return data.get('viewer_geom',
                                 '700x400')
         except Exception:
             pass
@@ -460,12 +492,12 @@ def _create_or_raise_log_viewer():
     def toggle_scroll():
         current = log_viewer_window.autoscroll_enabled.get()
         log_viewer_window.autoscroll_enabled.set(not current)
-        btn_text = "Auto-Scroll: ON" if not current else "Auto-Scroll: OFF"
+        btn_text = 'Auto-Scroll: ON' if not current else 'Auto-Scroll: OFF'
         scroll_btn.config(text=btn_text,
-                          fg="#00c850" if not current else "#8888aa")
+                          fg='#00c850' if not current else '#8888aa')
 
     scroll_btn = tk.Button(ctrl_frame,
-                           text="Auto-Scroll: ON",
+                           text='Auto-Scroll: ON',
                            font=('Segoe UI',
                                  8),
                            bg='#2d2d2d',
@@ -478,7 +510,7 @@ def _create_or_raise_log_viewer():
                     pady=2)
 
     clear_btn = tk.Button(ctrl_frame,
-                          text="Clear Log",
+                          text='Clear Log',
                           font=('Segoe UI',
                                 8),
                           bg='#2d2d2d',
@@ -547,7 +579,6 @@ def _on_log_close(win):
 def _append_to_text(txt_widget,
                     lines,
                     autoscroll=True):
-    # Se o widget foi destruído, não faça nada
     if not txt_widget.winfo_exists():
         return
 
@@ -561,7 +592,6 @@ def _append_to_text(txt_widget,
         if autoscroll:
             txt_widget.see(tk.END)
     except tk.TclError:
-        # O widget morreu entre o exists() e o insert()
         pass
 
 
@@ -828,7 +858,7 @@ def on_quit(icon,
 
 
 def on_settings(icon,
-                item):  # <-- add this tiny callback
+                item):
     open_settings(root)
 
 

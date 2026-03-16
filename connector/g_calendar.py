@@ -278,6 +278,15 @@ class GoogleCalendarConnector:
             print_display(f'{line_number()} [Google Calendar] 03) NOT FOUND')
             return 0
 
+        # BUG E FIX: shared_uid may be None when an event has never been
+        # assigned a UID.  Guard before deleting the key and before using
+        # the value as a Google Calendar API parameter — passing None would
+        # raise a TypeError or produce a nonsensical API call.
+        g_calendar_uid = g_calendar_instance_body.get('iCalUID')
+        if not g_calendar_uid:
+            print_display(f'{line_number()} [Google Calendar] INSERT SKIPPED: iCalUID is None or empty')
+            return None
+
         insert_result = None
         try:
             print_display(f'{line_number()} [Google Calendar] 04) INSERT <<==')
@@ -286,7 +295,9 @@ class GoogleCalendarConnector:
             insert_result = self.g_calendar_service.insert_instance_g_calendar(g_calendar_instance_body_no_uid)
         except HttpError as http_error:
             if http_error.status_code == 409:
-                g_calendar_instance_id = g_calendar_instance_body['iCalUID']
+
+                # g_calendar_instance_id = g_calendar_instance_body['iCalUID']
+                g_calendar_instance_id = g_calendar_uid
                 g_calendar_instance_id_trim = trim_id(g_calendar_instance_id)
                 g_calendar_summary = g_calendar_instance_body['summary']
                 print_display(f'{line_number()} [Google Calendar] 05) INSERT RESULT ERROR: [The/requested/identifier [{g_calendar_instance_id_trim}] [{g_calendar_summary}] already/exists.]')
