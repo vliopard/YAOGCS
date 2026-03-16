@@ -74,6 +74,8 @@ stop_event = threading.Event()
 log_lines = []
 log_callbacks = []
 
+MAX_LOG_LINES = 1000
+
 
 class ListHandler(logging.Handler):
     def emit(self,
