@@ -30,11 +30,11 @@ def _get_ms_outlook_connector() -> MicrosoftOutlookConnector:
     global _ms_outlook_connector
     if _ms_outlook_connector is not None:
         try:
-            # Probe the COM connection — if Outlook has disconnected this
+            # Probe the COM connection â€” if Outlook has disconnected this
             # will raise com_error and we fall through to recreate.
             _ = _ms_outlook_connector.ms_outlook_data.ms_outlook_calendar.Name
         except Exception:
-            print_display(f'{line_number()} [Microsoft Outlook] COM connection lost — reinitializing connector...')
+            print_display(f'{line_number()} [Microsoft Outlook] COM connection lost â€” reinitializing connector...')
             _ms_outlook_connector = None
     if _ms_outlook_connector is None:
         _ms_outlook_connector = MicrosoftOutlookConnector()
