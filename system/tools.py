@@ -360,7 +360,7 @@ def print_display(*arguments):
     if display_text == constants.DEFAULT_L:
         return
     if constants.RUN_GUI:
-        display_text = " ".join(map(str,
+        display_text = ' '.join(map(str,
                                     arguments)).rstrip()
         logger = logging.getLogger('CalendarSync Logger')
         logger.info(display_text)
