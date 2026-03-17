@@ -169,8 +169,10 @@ class MicrosoftOutlookConnector:
                 return None
             if not ms_outlook_appointment.IsRecurring:
                 return None
-            if not ms_outlook_appointment.get('IsRecurring'):
-                return None
+
+            #if not ms_outlook_appointment.get('IsRecurring'):
+            #    return None
+
             ms_outlook_recurrence = ms_outlook_appointment.GetRecurrencePattern()
             ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(datetime.strptime(ms_outlook_start_date,
                                                                                           '%Y-%m-%d'))
