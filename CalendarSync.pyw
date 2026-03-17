@@ -71,7 +71,7 @@ def _load_ini_int(section, key, fallback):
         return fallback
 
 def _ensure_ini_defaults():
-    '''Write ini file with defaults if the file or key is missing.'''
+    """Write ini file with defaults if the file or key is missing."""
     cfg = configparser.ConfigParser()
     cfg.read(_INI_PATH, encoding='utf-8')
     changed = False

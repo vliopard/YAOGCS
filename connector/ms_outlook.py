@@ -110,9 +110,9 @@ class MicrosoftOutlookConnector:
             self.save_cache()
 
     def _invalidate_cache(self):
-        '''BUG I FIX: called after any write operation (insert / update / delete)
+        """BUG I FIX: called after any write operation (insert / update / delete)
         so the next read fetches fresh data instead of returning stale results
-        that are missing the just-written change.'''
+        that are missing the just-written change."""
         self.ms_outlook_cache = None
         self.ms_outlook_cache_time = 0
 
@@ -141,27 +141,39 @@ class MicrosoftOutlookConnector:
         # ms_outlook_recurrence but never released them when an early return
         # or exception occurred.  Use try/finally to guarantee release of both
         # COM objects regardless of the exit path.
+        # BUG D FIX: use try/finally to guarantee COM object release on every
+        # exit path (early return, exception, or normal return).
+        # ms_outlook_raw holds the live COM object; ms_outlook_recurrence is
+        # the pattern derived from it.  Both must be released in finally.
+        # NOTE: ms_outlook_data.ms_outlook_get_item returns a raw COM object,
+        # NOT a dict, so IsRecurring must be accessed as an attribute, not
+        # via .get().  The dict form is only produced by get_item_ms_outlook
+        # (which calls convert_com_object_to_dictionary internally).
+        # BUG D FIX: added try/finally so both COM objects are always released
+        # regardless of exit path (early return, exception, or normal return).
         ms_outlook_appointment = None
         ms_outlook_recurrence = None
         try:
+
+            #ms_outlook_appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
+            #if not ms_outlook_appointment:
+            #    return None
+            ####
+            # ms_outlook_recurrence = ms_outlook_appointment.GetRecurrencePattern()
+            # ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(datetime.strptime(ms_outlook_start_date, '%Y-%m-%d'))
+            ####
+            # Re-fetch the raw COM object to call GetRecurrencePattern — the
+            # dict returned by get_item_ms_outlook is not a COM object.
             ms_outlook_appointment = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
             if not ms_outlook_appointment:
                 return None
-
-            # if not ms_outlook_appointment.IsRecurring:
+            if not ms_outlook_appointment.IsRecurring:
+                return None
             if not ms_outlook_appointment.get('IsRecurring'):
                 return None
-            '''
             ms_outlook_recurrence = ms_outlook_appointment.GetRecurrencePattern()
             ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(datetime.strptime(ms_outlook_start_date,
                                                                                           '%Y-%m-%d'))
-            '''
-            # Re-fetch the raw COM object to call GetRecurrencePattern — the
-            # dict returned by get_item_ms_outlook is not a COM object.
-            ms_outlook_raw = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
-            ms_outlook_recurrence = ms_outlook_raw.GetRecurrencePattern()
-            ms_outlook_occurrence = ms_outlook_recurrence.GetOccurrence(
-                datetime.strptime(ms_outlook_start_date, '%Y-%m-%d'))
             return convert_com_object_to_dictionary(ms_outlook_occurrence)
         except (pywintypes.com_error,
                 AttributeError) as com_error_type:
@@ -274,9 +286,9 @@ class MicrosoftOutlookConnector:
                 # FIX: use try/finally so release_com_object_memory() is
                 # always called even when a deleted-occurrence check fires
                 # a continue — previously the COM object would be leaked.
+                skip_item = False
                 try:
                     recurrence_pattern = ms_outlook_instance.GetRecurrencePattern()
-                    skip_item = False
                     for exception_index in range(1,
                                                  recurrence_pattern.Exceptions.Count + 1):
                         exception_item = recurrence_pattern.Exceptions.Item(exception_index)
@@ -292,11 +304,12 @@ class MicrosoftOutlookConnector:
                                 print_display(f'{line_number()} [Microsoft Outlook] SKIPPING DELETED OCCURRENCE: {ms_outlook_instance.Subject}')
                                 skip_item = True
                                 break
+                    if skip_item:
+                        release_com_object_memory(ms_outlook_instance)
                 finally:
                     if recurrence_pattern is not None:
                         release_com_object_memory(recurrence_pattern)
                 if skip_item:
-                    release_com_object_memory(ms_outlook_instance)
                     continue
             ms_outlook_instances[ms_outlook_entry_id] = ms_outlook_instance_data
             release_com_object_memory(ms_outlook_instance)
@@ -792,11 +805,11 @@ class MicrosoftOutlookConnector:
             raise ValueError(f'[Microsoft Outlook] Occurrence not found: [{exception}]')
 
     def get_all_recurring_masters_ms_outlook(self):
-        '''
+        """
         Fetches all recurring masters with no time restriction.
         Needed for recurrences that started before the 18-day window
         but still have active instances within it (e.g. Lunch since 2019).
-        '''
+        """
         ms_outlook_all_instances = self.ms_outlook_data.ms_outlook_get_all_instances()
         ms_outlook_all_instances.IncludeRecurrences = False
         ms_outlook_all_instances.Sort('[Start]')

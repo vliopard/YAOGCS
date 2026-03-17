@@ -535,7 +535,7 @@ class MessageSetup:
                                                     )
 
     def setup_mockup_appointments(self,
-                                  event_title,
+                                  event_title1,
                                   side='ms_outlook',
                                   enabled=False):
         today = date.today()
@@ -550,7 +550,7 @@ class MessageSetup:
                                          end_time='13:00',
                                          start_day=past_days,
                                          end_day=f'{current_year_month}-{last_day:02d}',
-                                         title=f'Evento X {event_title} Recurrence',
+                                         title=f'Evento X {event_title1} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
 
@@ -563,7 +563,7 @@ class MessageSetup:
                                          end_time='20:00',
                                          start_day=f'{current_year_month}-{first_day:02d}',
                                          end_day=f'{current_year_month}-{last_day:02d}',
-                                         title=f'Evento 1 {event_title} Recurrence',
+                                         title=f'Evento 1 {event_title1} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
 
@@ -575,7 +575,7 @@ class MessageSetup:
                                          end_time='21:00',
                                          start_day=f'{current_year_month}-{first_day:02d}',
                                          end_day=f'{current_year_month}-{last_day:02d}',
-                                         title=f'Evento 2 {event_title} Recurrence',
+                                         title=f'Evento 2 {event_title1} Recurrence',
                                          location='Conference Room / Teams',
                                          body='Daily project sync meeting.',
 
@@ -586,7 +586,7 @@ class MessageSetup:
             self.create_single_event(start_time='14:00',
                                      end_time='15:00',
                                      start_day=f'{current_year_month}-{first_day:02d}',
-                                     title=f'Evento 0_{event_title} Single',
+                                     title=f'Evento 0_{event_title1} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
 
@@ -597,7 +597,7 @@ class MessageSetup:
             self.create_single_event(start_time='15:00',
                                      end_time='16:00',
                                      start_day=f'{current_year_month}-{(first_day + 1):02d}',
-                                     title=f'Evento 1_{event_title} Single',
+                                     title=f'Evento 1_{event_title1} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
 
@@ -608,7 +608,7 @@ class MessageSetup:
             self.create_single_event(start_time='16:00',
                                      end_time='17:00',
                                      start_day=f'{current_year_month}-{(first_day + 2):02d}',
-                                     title=f'Evento 2_{event_title} Single',
+                                     title=f'Evento 2_{event_title1} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
 
@@ -619,7 +619,7 @@ class MessageSetup:
             self.create_single_event(start_time='17:00',
                                      end_time='18:00',
                                      start_day=f'{current_year_month}-{(first_day + 3):02d}',
-                                     title=f'Evento 3_{event_title} Single',
+                                     title=f'Evento 3_{event_title1} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
 
@@ -630,7 +630,7 @@ class MessageSetup:
             self.create_single_event(start_time='18:00',
                                      end_time='19:00',
                                      start_day=f'{current_year_month}-{(first_day + 4):02d}',
-                                     title=f'Evento 4_{event_title} Single',
+                                     title=f'Evento 4_{event_title1} Single',
                                      location='Room 402 / Teams',
                                      body='Review of project milestones and next steps.',
 
@@ -647,7 +647,7 @@ class MessageSetup:
                         end_time='09:30',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=f'{current_year_month}-{last_day:02d}',
-                        title=f'Evento W1_{event_title} Weekly Mon-Fri',
+                        title=f'Evento W1_{event_title1} Weekly Mon-Fri',
                         location='Conference Room / Teams',
                         body='Weekly standup Mon to Fri.',
                         days_of_week=['Monday',
@@ -662,7 +662,7 @@ class MessageSetup:
                         end_time='10:30',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=f'{current_year_month}-{last_day:02d}',
-                        title=f'Evento W2_{event_title} Weekly Mon+Wed',
+                        title=f'Evento W2_{event_title1} Weekly Mon+Wed',
                         location='Conference Room / Teams',
                         body='Biweekly sync on Monday and Wednesday.',
                         days_of_week=['Monday',
@@ -674,7 +674,7 @@ class MessageSetup:
                         end_time='12:00',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=(monday + timedelta(days=180)).strftime('%Y-%m-%d'),
-                        title=f'Evento M1_{event_title} Monthly',
+                        title=f'Evento M1_{event_title1} Monthly',
                         location='Room 402 / Teams',
                         body='Monthly review on the same date.')
 
@@ -684,7 +684,7 @@ class MessageSetup:
                         end_time='15:00',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=(monday + timedelta(days=180)).strftime('%Y-%m-%d'),
-                        title=f'Evento M2_{event_title} Monthly 3rd Thursday',
+                        title=f'Evento M2_{event_title1} Monthly 3rd Thursday',
                         location='Room 402 / Teams',
                         body='Monthly review on the 3rd Thursday.',
                         day_of_week='Thursday',
@@ -696,7 +696,7 @@ class MessageSetup:
                         end_time='10:00',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=(monday + timedelta(days=730)).strftime('%Y-%m-%d'),
-                        title=f'Evento Y1_{event_title} Yearly',
+                        title=f'Evento Y1_{event_title1} Yearly',
                         location='Room 402 / Teams',
                         body='Annual review on the same date.')
 
@@ -706,7 +706,7 @@ class MessageSetup:
                         end_time='16:00',
                         start_day=f'{current_year_month}-{first_day:02d}',
                         end_day=(monday + timedelta(days=730)).strftime('%Y-%m-%d'),
-                        title=f'Evento Y2_{event_title} Yearly Last Friday Nov',
+                        title=f'Evento Y2_{event_title1} Yearly Last Friday Nov',
                         location='Room 402 / Teams',
                         body='Annual review on the last Friday of November.',
                         day_of_week='Friday',

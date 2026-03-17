@@ -77,6 +77,7 @@ def trim_id(identification):
 
 def release_com_object_memory(com_object_for_deletion):
     try:
+        print_display(f'{line_number()} DELETE OBJECT: [{com_object_for_deletion}]')
         del com_object_for_deletion
     except ValueError as value_error:
         print_display(f'{line_number()} ValueError during COM release: [{value_error}]')

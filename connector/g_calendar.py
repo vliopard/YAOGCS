@@ -162,11 +162,11 @@ class GoogleCalendarHelper:
                                              g_calendar_start_date.hour,
                                              g_calendar_start_date.minute,
                                              g_calendar_start_date.second)
-        time_min = g_calendar_start_date.strftime('%Y-%m-%dT00:00:00Z')
-        time_max = g_calendar_start_date.strftime('%Y-%m-%dT23:59:59Z')
+        time_min1 = g_calendar_start_date.strftime('%Y-%m-%dT00:00:00Z')
+        time_max1 = g_calendar_start_date.strftime('%Y-%m-%dT23:59:59Z')
         result = self.g_calendar_service.events().list(calendarId=self.g_calendar_id,
-                                                       timeMin=time_min,
-                                                       timeMax=time_max,
+                                                       timeMin=time_min1,
+                                                       timeMax=time_max1,
                                                        maxResults=2500,
                                                        singleEvents=True).execute()
         for item in result.get('items',

@@ -195,12 +195,12 @@ def _create_or_raise_settings(root: tk.Tk):
              'seconds',
              lambda v: v >= 60), ]
 
-    def _current_value(key: str) -> int:
+    def _current_value(key1: str) -> int:
         return {
                 'day_past'         : constants.DAY_PAST,
                 'day_next'         : constants.DAY_NEXT,
                 'interval_observer': constants.INTERVAL_OBSERVER,
-                'interval_sync_job': constants.INTERVAL_SYNC_JOB}[key]
+                'interval_sync_job': constants.INTERVAL_SYNC_JOB}[key1]
 
     grid = tk.Frame(card_frame,
                     bg=card)
@@ -315,16 +315,16 @@ def _create_or_raise_settings(root: tk.Tk):
         all_ok = True
         new_vals: dict[str, int] = {}
 
-        for key, ent in entries.items():
-            raw = ent.get().strip()
+        for key2, ent1 in entries.items():
+            raw = ent1.get().strip()
             try:
                 val = int(raw)
-                if not validators[key](val):
+                if not validators[key2](val):
                     raise ValueError('out of range')
-                error_labels[key].config(text='')
-                new_vals[key] = val
+                error_labels[key2].config(text='')
+                new_vals[key2] = val
             except ValueError:
-                error_labels[key].config(text='✗ invalid')
+                error_labels[key2].config(text='✗ invalid')
                 all_ok = False
 
         if not all_ok:
@@ -348,12 +348,12 @@ def _create_or_raise_settings(root: tk.Tk):
                 'day_next'         : 180,
                 'interval_observer': 280,
                 'interval_sync_job': 60 * 60 * 2}
-        for key, ent in entries.items():
-            ent.delete(0,
+        for key3, ent3 in entries.items():
+            ent3.delete(0,
                        tk.END)
-            ent.insert(0,
-                       str(defaults[key]))
-            error_labels[key].config(text='')
+            ent3.insert(0,
+                       str(defaults[key3]))
+            error_labels[key3].config(text='')
         hint_var.set('Defaults loaded — press Apply to save.')
 
     _btn_style = dict(font=('Segoe UI',
