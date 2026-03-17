@@ -449,7 +449,11 @@ class MicrosoftOutlookConnector:
                                  ms_outlook_instance_id):
         ms_outlook_recurrence = self.ms_outlook_data.ms_outlook_get_item(ms_outlook_instance_id)
         if not ms_outlook_recurrence.IsRecurring:
-            raise ValueError('[Microsoft Outlook] Provided ID is not a recurring appointment')
+            
+            # raise ValueError('[Microsoft Outlook] Provided ID is not a recurring appointment')
+            print_display(f'{line_number()} [Microsoft Outlook] get_recurrence_instances: item is not recurring, returning empty list')
+            release_com_object_memory(ms_outlook_recurrence)
+            return []
         ms_outlook_recurrence_pattern = ms_outlook_recurrence.GetRecurrencePattern()
         ms_outlook_recurrence_list = list()
         ms_outlook_recurrence_start = ms_outlook_recurrence.Start

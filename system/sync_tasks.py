@@ -19,11 +19,23 @@ from system.tools import trim_id
 # on every sync cycle, which discarded the in-memory cache immediately and
 # forced a full Outlook re-query every run.  A module-level singleton means the
 # cache (and its cache_time) persists between cycles exactly as intended.
+# Keep a single MicrosoftOutlookConnector alive for the lifetime of the
+# process so the in-memory cache persists between sync cycles.
+# If the COM connection to Outlook dies (e.g. Outlook restarted), the
+# singleton is discarded and a fresh connector is created on next access.
 _ms_outlook_connector: MicrosoftOutlookConnector | None = None
 
 
 def _get_ms_outlook_connector() -> MicrosoftOutlookConnector:
     global _ms_outlook_connector
+    if _ms_outlook_connector is not None:
+        try:
+            # Probe the COM connection — if Outlook has disconnected this
+            # will raise com_error and we fall through to recreate.
+            _ = _ms_outlook_connector.ms_outlook_data.ms_outlook_calendar.Name
+        except Exception:
+            print_display(f'{line_number()} [Microsoft Outlook] COM connection lost — reinitializing connector...')
+            _ms_outlook_connector = None
     if _ms_outlook_connector is None:
         _ms_outlook_connector = MicrosoftOutlookConnector()
     return _ms_outlook_connector

@@ -247,7 +247,7 @@ class GoogleCalendarConnector:
         g_calendar_all_events = dict()
         g_calendar_instance_end_dates = dict()
         for g_calendar_single_item in g_calendar_all_instances_items:
-            print_box(f'{line_number()} [{g_calendar_single_item}]')
+            print_box(f'{line_number()} [Google Calendar] SINGLE ITEM: [{g_calendar_single_item["id"]}]')
             g_calendar_instance_id = g_calendar_single_item['id']
             g_calendar_all_events[g_calendar_instance_id] = g_calendar_single_item
         self.g_calendar_events = g_calendar_all_events
