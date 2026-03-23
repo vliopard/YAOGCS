@@ -324,13 +324,10 @@ class SyncTask:
         # BUG F FIX: g_calendar_to_ms_outlook was accidentally commented out,
         # silently disabling the entire Google Calendar -> Outlook sync direction.
         ways = [ms_outlook_to_g_calendar,
-                g_calendar_to_ms_outlook]
-        '''
-        ways = [ms_outlook_to_g_calendar,
 
                 # g_calendar_to_ms_outlook
                 ]
-        '''
+
 
         if ms_outlook_to_g_calendar in ways and g_calendar_to_ms_outlook in ways:
             print_box(f'{line_number()} Starting synchronization task: [Microsoft Outlook] <=> [Google Calendar]')
